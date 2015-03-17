@@ -1,0 +1,11 @@
+{
+  "tenants": [
+	{
+	  "description": null,
+	  "enabled": true,
+	  "id": "efdee1fee7b849af9c51967770cd21fb",
+	  "name": "demo"
+	}
+  ],
+  "tenants_links": []
+}

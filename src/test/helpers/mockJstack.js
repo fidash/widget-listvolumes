@@ -1,0 +1,2 @@
+var JSTACK = {};
+JSTACK.Nova = {};

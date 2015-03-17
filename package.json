@@ -1,0 +1,45 @@
+{
+  "name": "OpenStack-ListVolumes",
+  "homepage": "https://repo.conwet.fi.upm.es/wirecloud/openstack-listinstances-widget",
+  "version": "0.0.1",
+  "vendor": "CoNWeT",
+  "author": "CoNWeT Lab., Universidad Politecnica de Madrid",
+  "description": "A widget showing a list of current volumes available for a user of an openstack instance.",
+  "repository": {
+    "type": "git",
+    "url": "https://repo.conwet.fi.upm.es/wirecloud/openstack-listinstances-widget.git"
+  },
+  "bugs": {
+    "url": "https://repo.conwet.fi.upm.es/wirecloud/openstack-listinstances-widget/issues"
+  },
+  "keywords": [
+    "wirecloud",
+    "widget",
+    "openstack",
+    "dashboard"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "license": {
+    "type": "Apache v2",
+    "url": "http://www.apache.org/licenses/"
+  },
+  "devDependencies": {
+    "bootstrap": "^3.3.2",
+    "datatables": "^1.10.5",
+    "grunt": "^0.4.5",
+    "grunt-contrib-clean": "^0.6.0",
+    "grunt-contrib-compress": "^0.11.0",
+    "grunt-contrib-concat": "^0.5.0",
+    "grunt-contrib-copy": "^0.7.0",
+    "grunt-contrib-jasmine": "^0.8.1",
+    "grunt-contrib-jshint": "^0.10.0",
+    "grunt-gitinfo": "^0.1.7",
+    "grunt-template-jasmine-istanbul": "^0.3.0",
+    "grunt-text-replace": "^0.3.12",
+    "jasmine-jquery": "^2.0.5",
+    "jquery": "^2.1.1",
+    "font-awesome": "~4.3.0"
+  }
+}

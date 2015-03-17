@@ -1,0 +1,29 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<widget xmlns="http://wirecloud.conwet.fi.upm.es/ns/macdescription/1" vendor="CoNWeT" name="openstack-listvolume-widget" version="0.0.1">
+  <details>
+    <title>OpenStack List Volume Widget</title>
+    <email>bgrana@conwet.com</email>
+    <image>images/catalogue.png</image>
+    <smartphoneimage>images/catalogueSmartphone.png</smartphoneimage>
+    <description>Widget that shows a table with openStack volumes data</description>
+    <authors>bgrana</authors>
+  </details>
+  <requirements>
+    <feature name="StyledElements" />
+  </requirements>
+  <preferences>
+    <preference name="id" type="boolean" description="Activate to display the id column" label="ID" default="false" />
+    <preference name="name" type="boolean" description="Activate to display the name column" label="Name" default="true" />
+    <preference name="status" type="boolean" description="Activate to display the status column" label="Status" default="true" />
+    <preference name="availability_zone" type="boolean" description="Activate to display the availability zone column" label="Availability Zone" default="true" />
+    <preference name="created_at" type="boolean" description="Activate to display the created column" label="Created" default="false" />
+    <preference name="volume_type" type="boolean" description="Activate to display the volume type column" label="Volume Type" default="false" />
+    <preference name="snapshot_id" type="boolean" description="Activate to display the snapshot column" label="Snapshot" default="false" />
+    <preference name="size" type="boolean" description="Activate to display the size column" label="Size" default="true" />
+  </preferences>
+  <wiring>
+    <outputendpoint name="volume_id" type="text" label="Volume ID" description="Sends volume ID and OpenStack access." friendcode="volume_id"/>
+  </wiring>
+  <contents src="index.html" useplatformstyle="true"/>
+  <rendering height="27" width="11"/>
+</widget>
