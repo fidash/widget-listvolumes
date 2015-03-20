@@ -2167,7 +2167,7 @@ JSTACK.Nova.Volume = (function (JS, undefined) {
         if (JS.Keystone !== undefined && JS.Keystone.params.currentstate === JS.Keystone.STATES.AUTHENTICATED) {
             var service = JS.Keystone.getservice("volume");
             //params.url = service.endpoints[0][params.endpointType];
-            params.url = "https://cloud.lab.fiware.org/Spain2/volume/v1/";
+            params.url = "https://cloud.lab.fiware.org/Spain2/volume/v1/" + JSTACK.Keystone.params.access.token.tenant.id;
             return true;
         }
         return false;
@@ -2200,7 +2200,7 @@ JSTACK.Nova.Volume = (function (JS, undefined) {
         if (!check()) {
             return;
         }
-        url = params.url+ JSTACK.Keystone.params.access.token.tenant.id + '/volumes';
+        url = params.url + '/volumes';
         if (detailed !== undefined && detailed) {
             url += '/detail';
         }

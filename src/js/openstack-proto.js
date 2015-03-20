@@ -74,7 +74,7 @@ var OpenStackListVolume = (function (JSTACK) {
 
     function createTable () {
 
-        var refresh, createButton, modalCreateButton, search, searchButton,
+        var refresh, openModal, createVolumeButton, search, searchButton,
             searchInput;
 
         var columns = [
@@ -111,7 +111,7 @@ var OpenStackListVolume = (function (JSTACK) {
         });
 
         // Padding bottom for fixed to bottom bar
-        $('#volumes_table_wrapper').attr('style', 'padding-bottom: 49px;');
+        $('#volumes_table_wrapper').attr('style', 'padding-bottom: 40px;');
 
         // Pagination style
         $('#volumes_table_paginate').addClass('pagination pull-right');
@@ -164,6 +164,14 @@ var OpenStackListVolume = (function (JSTACK) {
         });
 
 
+        // Set open modal button
+        openModal = $('<button>')
+            .html('<i class="fa fa-plus"></i>')
+            .addClass('btn btn-primary action-button pull-left')
+            .attr('data-toggle', 'modal')
+            .attr('data-target', '#createVolumeModal')
+            .insertBefore($('#volumes_table_paginate'));
+
         // Set refresh button
         refresh = $('<button>')
             .html('<i class="fa fa-refresh"></i>')
@@ -171,6 +179,32 @@ var OpenStackListVolume = (function (JSTACK) {
             .click(getVolumeList)
             .insertBefore($('#volumes_table_paginate'));
 
+        // Set create volume button event
+        $('#create-volume').on('click', createVolume);
+
+    }
+
+    function createVolume () {
+
+        var size = $('#id_size').val();
+        var description = $('#id_description').val();
+        var name = $('#id_name').val();
+
+        JSTACK.Nova.Volume.createvolume(size, name, description, createVolumeCallback, onError);
+
+        // Clear form inputs
+        $('#id_size').val('1');
+        $('#id_description').val('');
+        $('#id_name').val('');
+
+        // Hide modal
+        $('#createVolumeModal').modal('hide');
+    }
+
+    function createVolumeCallback (response) {
+
+        // Show success message
+        console.log("Volume successfully created");
     }
 
     function getVolumeList () {
