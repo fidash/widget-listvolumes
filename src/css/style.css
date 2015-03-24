@@ -25,6 +25,10 @@ tr button.btn.btn-primary {
 	padding: 2px 10px;
 }
 
+.hide {
+    display: none;
+}
+
 .modal-footer {
     padding: 9px;
 }
@@ -75,4 +79,11 @@ tr button.btn.btn-primary {
 
 .navbar {
     min-height: 40px;
+}
+
+.loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
 }
