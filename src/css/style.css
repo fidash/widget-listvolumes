@@ -37,6 +37,15 @@ tr button.btn.btn-primary {
     width: 0px;
 }
 
+.alert {
+    position: fixed;
+    top: 35px;
+    width: 63%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+}
+
 .search-container {
     max-width: 50%;
     width: 40px;

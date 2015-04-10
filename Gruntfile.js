@@ -55,6 +55,7 @@ module.exports = function(grunt) {
           vendor: ['src/test/vendor/*.js',
             'node_modules/jquery/dist/jquery.js',
             'node_modules/datatables/media/js/jquery.dataTables.js',
+            'node_modules/bootstrap/dist/js/bootstrap.min.js',
             'src/lib/js/dataTables.fixedHeader.js',
             'node_modules/jasmine-jquery/lib/jasmine-jquery.js']
         }

@@ -68,14 +68,14 @@ var OpenStackListVolume = (function (JSTACK) {
                         // Get volume list and draw it in the table
                         getVolumeList();
                     },
-                    onFailure: function (response) {
-                        onError(response);
+                    onFailure: function (error) {
+                        authError(error);
                     }
                 });
 
             },
-            onFailure: function (response) {
-                onError(response);
+            onFailure: function (error) {
+                authError(error);
             }
         });
         
@@ -362,8 +362,69 @@ var OpenStackListVolume = (function (JSTACK) {
 
     }
 
+    function createAlert (type, title, message, details) {
+
+        // TODO buffer them and shown them on a list instead of removing them
+        // Hide previous alerts
+        $('.alert').hide();
+ 
+        var alert = $('<div>')
+            .addClass('alert alert-dismissible alert-' + type + ' fade in')
+            .attr('role', 'alert')
+            .html('<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button>');
+
+        // Title
+        $('<strong>')
+            .text(title + ' ')
+            .appendTo(alert);
+
+        // Message
+        $('<span>')
+            .text(message  + ' ')
+            .appendTo(alert);
+
+        if (details) {
+            // Details
+            var detailsMessage = $('<div>')
+                .appendTo(alert)
+                .hide();
+            for (var detail in details) {
+                detailsMessage.text(detailsMessage.text() + details[detail] + ' ');
+            }
+
+            // Toggle details
+            $('<a>')
+                .text('Details')
+                .click(function () {
+                    detailsMessage.toggle('fast');
+                })
+                .insertBefore(detailsMessage);
+        }
+
+        $('body').append(alert);
+
+    }
+
     function onError (error) {
+        
+        var errors = {
+            '500 Error': 'An error has occurred on the server side.',
+            '503 Error': 'Cloud service is not available at the moment.'
+        };
+
+        if (error.message in errors) {
+            createAlert('danger', 'Error', errors[error.message], error);            
+        }
+        else {
+            createAlert('danger', error.message, error.body);
+        }
+
         console.log('Error: ' + JSON.stringify(error));
+    }
+
+    function authError (error) {
+        onError(error);
+        authenticate();
     }
 
     function OpenStackListVolume () {
