@@ -13,7 +13,7 @@ describe('Test Volume Table', function () {
 	beforeEach(function() {
 
 		JSTACK.Keystone = jasmine.createSpyObj("Keystone", ["init", "authenticate", "gettenants", "params"]);
-		JSTACK.Nova.Volume = jasmine.createSpyObj("Volume", ["getvolumelist"]);
+		JSTACK.Nova.Volume = jasmine.createSpyObj("Volume", ["getvolumelist", "createvolume"]);
 
 		// Reset prefs values
 		prefsValues = {
@@ -33,7 +33,8 @@ describe('Test Volume Table', function () {
 		MashupPlatform.setStrategy(new MyStrategy(), prefsValues);
 
 		// Set/Reset fixtures
-		setFixtures('<table id="volumes_table"></table>');
+		jasmine.getFixtures().fixturesPath = 'src/test/fixtures/html';
+		loadFixtures('defaultTemplate.html');
 		jasmine.getJSONFixtures().fixturesPath = 'src/test/fixtures/json';
 		respVolumeList = getJSONFixture('respVolumeList.json');
 		respAuthenticate = getJSONFixture('respAuthenticate.json');
@@ -105,6 +106,13 @@ describe('Test Volume Table', function () {
 
 	}
 
+	function callListVolumeErrorCallback (error) {
+
+		var callback = JSTACK.Nova.Volume.getvolumelist.calls.mostRecent().args[2];
+
+		callback(error);
+	}
+
 
 	/**************************************************************************/
 	/****************************FUNCTIONALITY TESTS***************************/
@@ -160,6 +168,36 @@ describe('Test Volume Table', function () {
 		expect(JSTACK.Nova.Volume.getvolumelist.calls.count()).toEqual(expectedCount);
 		expect(setTimeoutSpy).toHaveBeenCalledWith(jasmine.any(Function), 4000);
 		
+	});
+
+	it('should call createVolume function when click event is triggered on the create image button', function () {
+
+		var createButton = $("#create-volume");
+		var spyEvent;
+
+		callListVolume();
+		callListVolumeSuccessCallback(respVolumeList);
+		$('#id_name').val("VolumeName");
+		spyEvent = spyOnEvent(createButton, 'click');
+		createButton.trigger('click');
+
+		expect('click').toHaveBeenTriggeredOn('#create-volume');
+		expect(JSTACK.Nova.Volume.createvolume).toHaveBeenCalledWith(jasmine.any(String), "VolumeName", jasmine.any(String), jasmine.any(Function), jasmine.any(Function));
+
+	});
+
+	it('should call the create volume callback correctly', function () {
+		var createButton = $("#create-volume");
+		var logSpy = spyOn(console, "log");
+		var createVolumeSuccessCallback;
+
+		callListVolume();
+		callListVolumeSuccessCallback(respVolumeList);
+		createButton.trigger('click');
+		createVolumeSuccessCallback = JSTACK.Nova.Volume.createvolume.calls.mostRecent().args[3];
+		createVolumeSuccessCallback();
+
+		expect(logSpy).toHaveBeenCalledWith("Volume successfully created");
 	});
 
 
@@ -252,6 +290,98 @@ describe('Test Volume Table', function () {
 			column = $('.fixedHeader th');
 			expect(column).toContainText(expectedColumns[i]);
 		}
+	});
+
+	it('should start loading animation with width lesser than the height', function () {
+		
+		var innerWidth = 100;
+		window.innerWidth = innerWidth;
+		window.innerHeight = innerWidth + 100;
+		callListVolume();
+		callListVolumeSuccessCallback(respVolumeList);
+
+		expect($('.loading i').css('font-size')).toBe(Math.floor(innerWidth/4) + 'px');
+	});
+
+	it('should start loading animation with height lesser than the width', function () {
+		
+		var innerHeight = 100;
+		window.innerWidth = innerHeight + 100;
+		window.innerHeight = innerHeight;
+		callListVolume();
+		callListVolumeSuccessCallback(respVolumeList);
+
+		expect($('.loading i').css('font-size')).toBe(Math.floor(innerHeight/4) + 'px');
+	});
+
+	it('should show an error alert with the appropiate predefined' + 
+       ' message and the received message body in the details', function () {
+
+		var imageId = 'id';
+		var error = {message: "500 Error", body: "Internal Server Error"};
+		
+		callListVolume();
+		callListVolumeErrorCallback(error);
+		
+		expect($('.alert > strong').last().text()).toBe('Error ');
+		expect($('.alert > span').last().text()).toBe('An error has occurred on the server side. ');
+		expect($('.alert > div').last().text()).toBe(error.message + ' ' + error.body + ' ');
+
+	});
+
+	it('should show an error alert with the message' + 
+	   ' received writen on it when ir doesn\'t recognize the error', function () {
+
+	   	var imageId = 'id';
+	   	var error = {message: "404 Error", body: "Image not found"};
+
+		callListVolume();
+		callListVolumeErrorCallback(error);
+		
+		expect($('.alert > strong').last().text()).toBe(error.message + ' ');
+		expect($('.alert > span').last().text()).toBe(error.body + ' ');
+
+	});
+
+	it('should display the error details when a click event is' + 
+	   ' triggered in the details button', function () {
+
+	   	var imageId = 'id';
+	   	var spyEvent = spyOnEvent('.alert a', 'click');
+	   	var error = {message: "500 Error", body: "Internal Server Error"};
+
+		callListVolume();
+		callListVolumeErrorCallback(error);
+		$('.alert a').trigger('click');
+		
+		expect($('.alert > div').last()).not.toHaveCss({display: "none"});
+
+	});
+
+	it('should expand the search input when a click event is triggered in the search button', function () {
+
+		var spyEvent = spyOnEvent('.search-container button', 'click');
+
+		callListVolume();
+		callListVolumeSuccessCallback(respVolumeList);
+		$('.search-container button').trigger('click');
+
+		expect($('.search-container input')).toHaveClass('slideRight');
+	});
+
+	it('should correctly search volumes when new data is introduced in the input field', function () {
+
+		var spyEvent;
+
+		callListVolume();
+		callListVolumeSuccessCallback(respVolumeList);
+		spyEvent = spyOnEvent('.search-container input', 'keyup');
+		$('.search-container input')
+			.val('RealVirtualInteractionGE-3.3.3')
+			.trigger('keyup');
+
+		expect('keyup').toHaveBeenTriggeredOn('.search-container input');
+		expect($('tbody').children().size()).toBe(1);
 	});
 
 });
