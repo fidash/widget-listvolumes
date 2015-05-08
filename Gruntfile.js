@@ -98,6 +98,23 @@ module.exports = function(grunt) {
                 src: ['src/test/**/*.js', '!src/test/fixtures/', '!src/test/StyledElements/*']
             }
         }
+    },
+
+    watch: {
+      src: {
+        files: ['src/js/**/*.js'],
+        tasks: ['karma:all', 'default'],
+        options: {
+          livereload: true
+        }
+      },
+      tests: {
+        files: ['src/js/test/**/*.js'],
+        tasks: ['karma:all'],
+        options: {
+          livereload: true
+        }
+      }
     }
   });
 
@@ -110,6 +127,7 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-gitinfo');
   grunt.loadNpmTasks('grunt-text-replace');
   grunt.loadNpmTasks('grunt-karma');
+  grunt.loadNpmTasks('grunt-contrib-watch');
 
   grunt.registerTask('manifest', 'Creates a manifest.json file', function() {
 
