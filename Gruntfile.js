@@ -46,37 +46,16 @@ module.exports = function(grunt) {
       }
     },
     
-    jasmine: {
-      test: {
-        src: ['src/js/*.js', '!src/js/main.js'],
+    karma: {
+      headless: {
+        configFile: 'karma.conf.js',
         options: {
-          specs: 'src/test/js/*Spec.js',
-          helpers: ['src/test/helpers/*.js', 'build/helpers/*.js'],
-          vendor: ['src/test/vendor/*.js',
-            'node_modules/jquery/dist/jquery.js',
-            'node_modules/datatables/media/js/jquery.dataTables.js',
-            'node_modules/bootstrap/dist/js/bootstrap.min.js',
-            'src/lib/js/dataTables.fixedHeader.js',
-            'node_modules/jasmine-jquery/lib/jasmine-jquery.js']
+          browsers: ['PhantomJS']
         }
       },
 
-      coverage: {
-        src: '<%= jasmine.test.src %>',
-        options: {
-          helpers: '<%= jasmine.test.options.helpers %>',
-          specs: '<%= jasmine.test.options.specs %>',
-          vendor: '<%= jasmine.test.options.vendor %>',
-          template: require('grunt-template-jasmine-istanbul'),
-          templateOptions : {
-            coverage: 'build/coverage/json/coverage.json',
-            report: [
-              {type: 'html', options: {dir: 'build/coverage/html'}},
-              {type: 'cobertura', options: {dir: 'build/coverage/xml'}},
-              {type: 'text-summary'}
-            ]
-          }
-        }
+      all: {
+        configFile: 'karma.conf.js',
       }
     },
 
@@ -130,6 +109,7 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-jshint');
   grunt.loadNpmTasks('grunt-gitinfo');
   grunt.loadNpmTasks('grunt-text-replace');
+  grunt.loadNpmTasks('grunt-karma');
 
   grunt.registerTask('manifest', 'Creates a manifest.json file', function() {
 
@@ -146,7 +126,7 @@ module.exports = function(grunt) {
   });
 
   grunt.registerTask('package', ['gitinfo', 'manifest', 'copy', 'compress:widget']);
-  grunt.registerTask('test', ['jasmine:coverage']);
+  grunt.registerTask('test', ['karma:headless']);
   grunt.registerTask('default',
     [
     'jshint',

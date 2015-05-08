@@ -33,9 +33,9 @@ describe('Test Volume Table', function () {
 		MashupPlatform.setStrategy(new MyStrategy(), prefsValues);
 
 		// Set/Reset fixtures
-		jasmine.getFixtures().fixturesPath = 'src/test/fixtures/html';
+		jasmine.getFixtures().fixturesPath = 'base/src/test/fixtures/html';
 		loadFixtures('defaultTemplate.html');
-		jasmine.getJSONFixtures().fixturesPath = 'src/test/fixtures/json';
+		jasmine.getJSONFixtures().fixturesPath = 'base/src/test/fixtures/json';
 		respVolumeList = getJSONFixture('respVolumeList.json');
 		respAuthenticate = getJSONFixture('respAuthenticate.json');
 		respTenants = getJSONFixture('respTenants.json');
@@ -294,24 +294,27 @@ describe('Test Volume Table', function () {
 
 	it('should start loading animation with width lesser than the height', function () {
 		
-		var innerWidth = 100;
-		window.innerWidth = innerWidth;
-		window.innerHeight = innerWidth + 100;
-		callListVolume();
-		callListVolumeSuccessCallback(respVolumeList);
+		var bodyWidth = 100;
 
-		expect($('.loading i').css('font-size')).toBe(Math.floor(innerWidth/4) + 'px');
+        $('body').width(bodyWidth);
+        $('body').height(bodyWidth + 100);
+        callListVolume();
+        callListVolumeSuccessCallback(respVolumeList);
+
+        expect($('.loading i').css('font-size')).toBe(Math.floor(bodyWidth/4) + 'px');
 	});
 
 	it('should start loading animation with height lesser than the width', function () {
 		
-		var innerHeight = 100;
-		window.innerWidth = innerHeight + 100;
-		window.innerHeight = innerHeight;
-		callListVolume();
-		callListVolumeSuccessCallback(respVolumeList);
+		var bodyHeight = 100;
+        
+        $('body').width(bodyHeight + 100);
+        $('body').height(bodyHeight);
 
-		expect($('.loading i').css('font-size')).toBe(Math.floor(innerHeight/4) + 'px');
+        callListVolume();
+        callListVolumeSuccessCallback(respVolumeList);
+
+        expect($('.loading i').css('font-size')).toBe(Math.floor(bodyHeight/4) + 'px');
 	});
 
 	it('should show an error alert with the appropiate predefined' + 
@@ -333,7 +336,7 @@ describe('Test Volume Table', function () {
 	   ' received writen on it when ir doesn\'t recognize the error', function () {
 
 	   	var imageId = 'id';
-	   	var error = {message: "404 Error", body: "Image not found"};
+	   	var error = {message: "404 Error", body: "Volume not found"};
 
 		callListVolume();
 		callListVolumeErrorCallback(error);
