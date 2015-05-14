@@ -19,7 +19,6 @@
 
         // Helper files
         'src/test/helpers/*.js',
-        'build/helpers/*.js',
 
         // Fixtures
         { pattern: 'src/test/fixtures/html/defaultTemplate.html',
