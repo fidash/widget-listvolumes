@@ -52,10 +52,15 @@
         'karma-chrome-launcher',
         'karma-phantomjs-launcher',
         'karma-fixture',
+        'karma-junit-reporter',
         'karma-coverage'
       ],
 
-      reporters: ['progress', 'coverage'],
+      reporters: ['progress', 'junit', 'coverage'],
+
+      junitReporter: {
+        outputFile: 'build/test-reports/junit.xml'
+      },
 
       coverageReporter: {
         reporters: [ 
