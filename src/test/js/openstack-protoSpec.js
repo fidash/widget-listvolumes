@@ -5,8 +5,6 @@ describe('Test Volume Table', function () {
 
 	var openStack = null;
 	var respAuthenticate = null;
-	var respTenants = null;
-	var respServices = null;
 	var respVolumeList = null;
 	var prefsValues;
 
@@ -38,8 +36,6 @@ describe('Test Volume Table', function () {
 		jasmine.getJSONFixtures().fixturesPath = 'base/src/test/fixtures/json';
 		respVolumeList = getJSONFixture('respVolumeList.json');
 		respAuthenticate = getJSONFixture('respAuthenticate.json');
-		respTenants = getJSONFixture('respTenants.json');
-		respServices = getJSONFixture('respServices.json');
 		respVolumeList = getJSONFixture('respVolumeList.json');
 
 		// Create new volume
@@ -58,44 +54,24 @@ describe('Test Volume Table', function () {
 
 	function callListVolume() {
 
-		var handleServiceTokenCallback, getTenantsOnSuccess;
+		var createWidgetUI;
 		openStack.init();
 
-		getTenantsOnSuccess = MashupPlatform.http.makeRequest.calls.mostRecent().args[1].onSuccess;
-		respTenants = {
-			responseText: JSON.stringify(respTenants)
+		createWidgetUI = MashupPlatform.http.makeRequest.calls.mostRecent().args[1].onSuccess;
+		respAuthenticate = {
+			responseText: JSON.stringify(respAuthenticate),
+			getHeader: function () {}
 		};
-		getTenantsOnSuccess(respTenants);
-		
-		handleServiceTokenCallback = MashupPlatform.http.makeRequest.calls.mostRecent().args[1].onSuccess;
-		respServices = {
-			responseText: JSON.stringify(respServices)
-		};
-		handleServiceTokenCallback(respServices);
+		createWidgetUI(respAuthenticate);
 
 	}
 
-	function callgetTenantsWithError () {
+	function callAuthenticateWithError (error) {
 		
-		var getTenantsOnError;
+		var authError;
 
-		openStack.init();
-		getTenantsOnError = MashupPlatform.http.makeRequest.calls.mostRecent().args[1].onFailure;
-		getTenantsOnError('Test successful');
-	}
-
-	function callAuthenticateWithError () {
-		
-		var authenticateError, getTenantsOnSuccess;
-
-		getTenantsOnSuccess = MashupPlatform.http.makeRequest.calls.mostRecent().args[1].onSuccess;
-		respTenants = {
-			responseText: JSON.stringify(respTenants)
-		};
-		getTenantsOnSuccess(respTenants);
-
-		authenticateError = MashupPlatform.http.makeRequest.calls.mostRecent().args[1].onFailure;
-		authenticateError('Test successful');
+		authError = MashupPlatform.http.makeRequest.calls.mostRecent().args[1].onFailure;
+		authError(error);
 	}
 
 	function callListVolumeSuccessCallback (volumeList) {
@@ -122,7 +98,7 @@ describe('Test Volume Table', function () {
 
 		callListVolume();
 
-		expect(MashupPlatform.http.makeRequest.calls.count()).toBe(2);
+		expect(MashupPlatform.http.makeRequest.calls.count()).toBe(1);
 		expect(JSTACK.Keystone.params.currentstate).toBe(2);
 
 	});
@@ -137,20 +113,12 @@ describe('Test Volume Table', function () {
 		expect(rows.length).toBeGreaterThan(0);
 	});
 
-	it('should call error callback for getTenants correctly',function () {
-
-		var consoleSpy = spyOn(console, "log");
-
-		callgetTenantsWithError();
-		expect(consoleSpy.calls.mostRecent().args[0]).toBe('Error: "Test successful"');
-	});
-
 	it('should call error callback for authenticate correctly', function () {
 		
 		var consoleSpy = spyOn(console, "log");
 
-		callgetTenantsWithError();
-		callAuthenticateWithError();
+		callListVolume();
+		callAuthenticateWithError('Test successful');
 		expect(consoleSpy.calls.mostRecent().args[0]).toBe('Error: "Test successful"');
 	});
 

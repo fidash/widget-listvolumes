@@ -1,82 +1,61 @@
 var OpenStackListVolume = (function (JSTACK) {
     "use strict";
 
-    var url = 'https://cloud.lab.fiware.org/keystone/v2.0/';
+    var authURL = 'https://cloud.lab.fiware.org/keystone/v3/auth/';
     var dataTable, hiddenColumns, fixedHeader, selectedRowId;
     var focusState = false;
 
+    function createWidgetUI (tokenResponse) {
+        
+        var token = tokenResponse.getHeader('x-subject-token');
+        var responseBody = JSON.parse(tokenResponse.responseText);
+
+        // Temporal change to fix catalog name
+        responseBody.token.serviceCatalog = responseBody.token.catalog;
+
+        // Mimic JSTACK.Keystone.authenticate behavior on success
+        JSTACK.Keystone.params.token = token;
+        JSTACK.Keystone.params.access = responseBody.token;
+        JSTACK.Keystone.params.currentstate = 2;
+
+        stopLoadingAnimation($('.loading'));
+        createTable();
+        getVolumeList();
+
+    }
+
     function authenticate () {
         
-        var tokenId, tenantId;
-        var postBody, headersAuth;
-        var options;
-        var USERNAME, PASSWORD;
-        var headersTenants = {};
-
-        headersAuth = {
-            "Accept": "application/json",
+        var headersAuth = {
             "X-FI-WARE-OAuth-Token": "true",
-            "X-FI-WARE-OAuth-Token-Body-Pattern": "%fiware_token%"
+            "X-FI-WARE-OAuth-Token-Body-Pattern": "%fiware_token%",
+            "Accept": "application/json"
         };
 
-        headersTenants['X-FI-WARE-OAuth-Token'] = 'true';
-        headersTenants['X-FI-WARE-OAuth-Header-Name'] = 'X-Auth-Token';
-
-        postBody = {
-            "auth": {}
-        };
-
-        postBody.auth.token = {
-            "id": "%fiware_token%"
-        };
-
-
-        // Initialize Keystone
-        JSTACK.Keystone.init(url);
-
-        // Start loading animation
-        startLoadingAnimation();
-
-        // Get tenants with the user's FIWARE token
-        MashupPlatform.http.makeRequest(url + 'tenants', {
-            method: 'GET',
-            requestHeaders: headersTenants,
-            onSuccess: function (response) {
-
-                response = JSON.parse(response.responseText);
-                postBody.auth.tenantId = response.tenants[0].id;
-
-                // Post request to receive service token from Openstack
-                MashupPlatform.http.makeRequest(url + 'tokens', {
-                    requestHeaders: headersAuth,
-                    contentType: "application/json",
-                    postBody: JSON.stringify(postBody),
-                    onSuccess: function (response) {
-                        response = JSON.parse(response.responseText);
-
-                        // Mimic JSTACK.Keystone.authenticate behavior on success
-                        JSTACK.Keystone.params.token = response.access.token.id;
-                        JSTACK.Keystone.params.access = response.access;
-                        JSTACK.Keystone.params.currentstate = 2;
-
-                        // Stop loading animation
-                        stopLoadingAnimation();
-
-                        // Create table
-                        createTable();
-
-                        // Get volume list and draw it in the table
-                        getVolumeList();
-                    },
-                    onFailure: function (error) {
-                        authError(error);
+        var authBody = {
+            "auth": {
+                "identity": {
+                    "methods": [
+                        "oauth2"
+                    ],
+                    "oauth2": {
+                        "access_token_id": "%fiware_token%"
                     }
-                });
-
-            },
-            onFailure: function (error) {
-                authError(error);
+                }
             }
+        };
+
+        JSTACK.Keystone.init(authURL);
+        startLoadingAnimation($('.loading'), $('.loading i'));
+
+        // Get token with user's FIWARE token
+        MashupPlatform.http.makeRequest(authURL + 'tokens', {
+            method: 'POST',
+            requestHeaders: headersAuth,
+            contentType: "application/json",
+            postBody: JSON.stringify(authBody),
+            onSuccess: createWidgetUI,
+            onFailure: authError
         });
         
     }
@@ -225,7 +204,8 @@ var OpenStackListVolume = (function (JSTACK) {
     function rowClickCallback (id) {
         var data = {
             'id': id,
-            'access': JSTACK.Keystone.params.access
+            'access': JSTACK.Keystone.params.access,
+            'token': JSTACK.Keystone.params.token
         };
         MashupPlatform.wiring.pushEvent('volume_id', JSON.stringify(data));
     }
