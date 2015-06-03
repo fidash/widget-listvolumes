@@ -6,4 +6,5 @@ $(document).ready(function() {
 	var openStackListVolume = new OpenStackListVolume();
 
     openStackListVolume.init();
+    openStackListVolume.authenticate();
 });
