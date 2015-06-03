@@ -11,7 +11,7 @@ describe('Test Volume Table', function () {
 	beforeEach(function() {
 
 		JSTACK.Keystone = jasmine.createSpyObj("Keystone", ["init", "authenticate", "gettenants", "params"]);
-		JSTACK.Nova.Volume = jasmine.createSpyObj("Volume", ["getvolumelist", "createvolume"]);
+		JSTACK.Cinder = jasmine.createSpyObj("Cinder", ["getvolumelist", "createvolume"]);
 
 		// Reset prefs values
 		prefsValues = {
@@ -77,7 +77,7 @@ describe('Test Volume Table', function () {
 
 	function callListVolumeSuccessCallback (volumeList) {
 
-		var callback = JSTACK.Nova.Volume.getvolumelist.calls.mostRecent().args[1];
+		var callback = JSTACK.Cinder.getvolumelist.calls.mostRecent().args[1];
 		
 		callback(volumeList);
 
@@ -85,7 +85,7 @@ describe('Test Volume Table', function () {
 
 	function callListVolumeErrorCallback (error) {
 
-		var callback = JSTACK.Nova.Volume.getvolumelist.calls.mostRecent().args[2];
+		var callback = JSTACK.Cinder.getvolumelist.calls.mostRecent().args[2];
 
 		callback(error);
 	}
@@ -129,12 +129,12 @@ describe('Test Volume Table', function () {
 		var setTimeoutSpy = spyOn(window, 'setTimeout');
 
 		callListVolume();
-		expectedCount = JSTACK.Nova.Volume.getvolumelist.calls.count() + 1;
+		expectedCount = JSTACK.Cinder.getvolumelist.calls.count() + 1;
 		callListVolumeSuccessCallback(respVolumeList);
 		callback = setTimeout.calls.mostRecent().args[0];
 		callback();
 
-		expect(JSTACK.Nova.Volume.getvolumelist.calls.count()).toEqual(expectedCount);
+		expect(JSTACK.Cinder.getvolumelist.calls.count()).toEqual(expectedCount);
 		expect(setTimeoutSpy).toHaveBeenCalledWith(jasmine.any(Function), 4000);
 		
 	});
@@ -151,7 +151,7 @@ describe('Test Volume Table', function () {
 		createButton.trigger('click');
 
 		expect('click').toHaveBeenTriggeredOn('#create-volume');
-		expect(JSTACK.Nova.Volume.createvolume).toHaveBeenCalledWith(jasmine.any(String), "VolumeName", jasmine.any(String), jasmine.any(Function), jasmine.any(Function));
+		expect(JSTACK.Cinder.createvolume).toHaveBeenCalledWith(jasmine.any(String), "VolumeName", jasmine.any(String), jasmine.any(Function), jasmine.any(Function));
 
 	});
 
@@ -163,7 +163,7 @@ describe('Test Volume Table', function () {
 		callListVolume();
 		callListVolumeSuccessCallback(respVolumeList);
 		createButton.trigger('click');
-		createVolumeSuccessCallback = JSTACK.Nova.Volume.createvolume.calls.mostRecent().args[3];
+		createVolumeSuccessCallback = JSTACK.Cinder.createvolume.calls.mostRecent().args[3];
 		createVolumeSuccessCallback();
 
 		expect(logSpy).toHaveBeenCalledWith("Volume successfully created");
