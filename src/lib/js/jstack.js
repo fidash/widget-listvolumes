@@ -20,7 +20,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.*/
-
 /*****************************************************************************/
 // UPM ETSI-INF patch to be browser compatible
 
@@ -29,6 +28,7 @@ if (typeof(XMLHttpRequest) !== "function") {
     var XMLHttpRequest = require("./../vendor/xmlhttprequest").XMLHttpRequest;
 }
 /*****************************************************************************/
+/*
 /*
 The MIT License
 
@@ -105,7 +105,7 @@ THE SOFTWARE.
 JSTACK.Comm = (function (JS, undefined) {
     "use strict";
 
-    var send, get, head, post, put, del;
+    var send, get, head, post, put, patch, del, getEndpoint;
 
     // Private functions
     // -----------------
@@ -128,18 +128,21 @@ JSTACK.Comm = (function (JS, undefined) {
         // authenticate the request, and success and error callbacks.
         xhr = new XMLHttpRequest();
         xhr.open(method, url, true);
-        if (method !== 'get' && method !== 'head') {
-            xhr.setRequestHeader("Content-Type", "application/json");
-        }
+        
         xhr.setRequestHeader("Accept", "application/json");
         if (token !== undefined) {
             xhr.setRequestHeader('X-Auth-Token', token);
         }
-
+        var hasContent = false;
         if (headers) {
             for (var head in headers) {
+                if (head === "Content-Type") hasContent = true;
                 xhr.setRequestHeader(head, headers[head]);
+                console.log("Header set: ", head, " - ", headers[head]);
             }
+        }
+        if (data && !hasContent) {
+            xhr.setRequestHeader("Content-Type", "application/json");
         }
 
         xhr.onerror = function(error) {
@@ -169,7 +172,7 @@ JSTACK.Comm = (function (JS, undefined) {
                     if (xhr.responseText !== undefined && xhr.responseText !== '') {
                         result = JSON.parse(xhr.responseText);
                     }
-                    callBackOK(result, xhr.getAllResponseHeaders());
+                    callBackOK(result, xhr.getAllResponseHeaders()/*, xhr.getResponseHeader('x-subject-token')*/);
                     break;
 
                 // In case of error it sends an error message to `callbackError`.
@@ -221,13 +224,43 @@ JSTACK.Comm = (function (JS, undefined) {
     // * Function *put* receives the same parameters as post. It sends
     // a HTTP PUT request.
     put = function (url, data, token, callbackOK, callbackError, headers) {
-        send("PUT", url, data, token, callbackOK, callbackError);
+        send("PUT", url, data, token, callbackOK, callbackError, headers);
+    };
+    // * Function *patch* receives the same parameters as post. It sends
+    // a HTTP PATC request.
+    patch = function (url, data, token, callbackOK, callbackError, headers) {
+        headers["Content-Type"] = 'application/openstack-images-v2.1-json-patch';
+        send("PATCH", url, data, token, callbackOK, callbackError, headers);
     };
     // * Function *del* receives the same paramaters as get. It sends a
     // HTTP DELETE request.
     del = function (url, token, callbackOK, callbackError, headers) {
         send("DELETE", url, undefined, token, callbackOK, callbackError);
     };
+
+    getEndpoint = function (serv, region, type) {
+        var endpoint;
+        if (JSTACK.Keystone.params.version === 3) {
+            type = type.split('URL')[0];
+            for (var e in serv.endpoints) {
+                if (serv.endpoints[e].region === region && serv.endpoints[e].interface === type) {
+                    endpoint = serv.endpoints[e].url;
+                    break;
+                }
+            }
+        } else {
+            for (var e in serv.endpoints) {
+                if (serv.endpoints[e].region === region) {
+                    endpoint = serv.endpoints[e][type];
+                    break;
+                }
+            }
+        }
+
+        //if (!endpoint) endpoint = serv.endpoints[0][type];
+        return endpoint;
+    };
+
     // Public Functions and Variables
     // ------------------------------
     // This is the list of available public functions and variables
@@ -238,7 +271,9 @@ JSTACK.Comm = (function (JS, undefined) {
         head : head,
         post : post,
         put : put,
-        del : del
+        patch: patch,
+        del : del,
+        getEndpoint: getEndpoint
     };
 }(JSTACK));
 /*
@@ -268,130 +303,136 @@ JSTACK.Comm = (function (JS, undefined) {
 JSTACK.Utils = (function(JS, undefined) {
 
     "use strict";
+    var END_OF_INPUT, base64Chars, reverseBase64Chars, base64Str, base64Count, i, setBase64Str, readBase64, encodeBase64, readReverseBase64, ntos, decodeBase64;
 
-    var keyStr, utf8_encode, utf8_decode, encode, decode;
+    END_OF_INPUT = -1;
 
-    // private property
-    keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+    base64Chars = [
+        'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+        'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+        'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
+        'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
+        'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+        'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+        'w', 'x', 'y', 'z', '0', '1', '2', '3',
+        '4', '5', '6', '7', '8', '9', '+', '/'
+    ];
 
-    // private method for UTF-8 encoding
-    utf8_encode = function (string) {
-        var utftext = "", n, c;
+    reverseBase64Chars = [];
 
-        string = string.replace(/\r\n/g, "\n");
+    for (i = 0; i < base64Chars.length; i = i + 1) {
+        reverseBase64Chars[base64Chars[i]] = i;
+    }
 
-        for (n = 0; n < string.length; n = n + 1) {
+    setBase64Str = function (str) {
+        base64Str = str;
+        base64Count = 0;
+    };
 
-            c = string.charCodeAt(n);
+    readBase64 = function () {
+        var c;
+        if (!base64Str) {
+            return END_OF_INPUT;
+        }
+        if (base64Count >= base64Str.length) {
+            return END_OF_INPUT;
+        }
+        c = base64Str.charCodeAt(base64Count) & 0xff;
+        base64Count = base64Count + 1;
+        return c;
+    };
 
-            if (c < 128) {
-                utftext = utftext + String.fromCharCode(c);
-            } else if ((c > 127) && (c < 2048)) {
-                utftext = utftext + String.fromCharCode((c >> 6) | 192);
-                utftext = utftext + String.fromCharCode((c & 63) | 128);
+    encodeBase64 = function (str) {
+        var result, inBuffer, lineCount, done;
+        setBase64Str(str);
+        result = '';
+        inBuffer = new Array(3);
+        lineCount = 0;
+        done = false;
+        while (!done && (inBuffer[0] = readBase64()) !== END_OF_INPUT) {
+            inBuffer[1] = readBase64();
+            inBuffer[2] = readBase64();
+            result = result + (base64Chars[inBuffer[0] >> 2]);
+            if (inBuffer[1] !== END_OF_INPUT) {
+                result = result + (base64Chars [((inBuffer[0] << 4) & 0x30) | (inBuffer[1] >> 4)]);
+                if (inBuffer[2] !== END_OF_INPUT) {
+                    result = result + (base64Chars [((inBuffer[1] << 2) & 0x3c) | (inBuffer[2] >> 6)]);
+                    result = result + (base64Chars[inBuffer[2] & 0x3F]);
+                } else {
+                    result = result + (base64Chars[((inBuffer[1] << 2) & 0x3c)]);
+                    result = result + ('=');
+                    done = true;
+                }
             } else {
-                utftext = utftext + String.fromCharCode((c >> 12) | 224);
-                utftext = utftext + String.fromCharCode(((c >> 6) & 63) | 128);
-                utftext = utftext + String.fromCharCode((c & 63) | 128);
+                result = result + (base64Chars[((inBuffer[0] << 4) & 0x30)]);
+                result = result + ('=');
+                result = result + ('=');
+                done = true;
             }
-
+            lineCount = lineCount + 4;
+            if (lineCount >= 76) {
+                result = result + ('\n');
+                lineCount = 0;
+            }
         }
-
-        return utftext;
+        return result;
     };
 
-    // private method for UTF-8 decoding
-    utf8_decode = function (utftext) {
-        var string = "", i = 0, c = 0, c1 = 0, c2 = 0, c3 = 0;
+    readReverseBase64 = function () {
+        if (!base64Str) {
+            return END_OF_INPUT;
+        }
+        while (true) {
+            if (base64Count >= base64Str.length) {
+                return END_OF_INPUT;
+            }
+            var nextCharacter = base64Str.charAt(base64Count);
+            base64Count = base64Count + 1;
+            if (reverseBase64Chars[nextCharacter]) {
+                return reverseBase64Chars[nextCharacter];
+            }
+            if (nextCharacter === 'A') {
+                return 0;
+            }
+        }
+    };
 
-        while (i < utftext.length) {
+    ntos = function (n) {
+        n = n.toString(16);
+        if (n.length === 1) {
+            n = "0" + n;
+        }
+        n = "%" + n;
+        return unescape(n);
+    };
 
-            c = utftext.charCodeAt(i);
-
-            if (c < 128) {
-                string = string + String.fromCharCode(c);
-                i = i + 1;
-            } else if ((c > 191) && (c < 224)) {
-                c2 = utftext.charCodeAt(i + 1);
-                string = string + String.fromCharCode(((c & 31) << 6) | (c2 & 63));
-                i = i + 2;
+    decodeBase64 = function (str) {
+        var result, inBuffer, done;
+        setBase64Str(str);
+        result = "";
+        inBuffer = new Array(4);
+        done = false;
+        while (!done && (inBuffer[0] = readReverseBase64()) !== END_OF_INPUT && (inBuffer[1] = readReverseBase64()) !== END_OF_INPUT) {
+            inBuffer[2] = readReverseBase64();
+            inBuffer[3] = readReverseBase64();
+            result = result + ntos((((inBuffer[0] << 2) & 0xff)| inBuffer[1] >> 4));
+            if (inBuffer[2] !== END_OF_INPUT) {
+                result +=  ntos((((inBuffer[1] << 4) & 0xff) | inBuffer[2] >> 2));
+                if (inBuffer[3] !== END_OF_INPUT) {
+                    result = result +  ntos((((inBuffer[2] << 6)  & 0xff) | inBuffer[3]));
+                } else {
+                    done = true;
+                }
             } else {
-                c2 = utftext.charCodeAt(i + 1);
-                c3 = utftext.charCodeAt(i + 2);
-                string += String.fromCharCode(((c & 15) << 12) | ((c2 & 63) << 6) | (c3 & 63));
-                i = i + 3;
+                done = true;
             }
-
         }
-        return string;
-    };
-
-    // public method for encoding
-    encode = function (input) {
-        var output = "", chr1, chr2, chr3, enc1, enc2, enc3, enc4, i = 0;
-
-        input = utf8_encode(input);
-
-        while (i < input.length) {
-
-            chr1 = input.charCodeAt(i = i + 1);
-            chr2 = input.charCodeAt(i = i + 1);
-            chr3 = input.charCodeAt(i = i + 1);
-
-            enc1 = chr1 >> 2;
-            enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
-            enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
-            enc4 = chr3 & 63;
-
-            if (isNaN(chr2)) {
-                enc3 = enc4 = 64;
-            } else if (isNaN(chr3)) {
-                enc4 = 64;
-            }
-
-            output = output + JS.Utils.keyStr.charAt(enc1) + Base64.keyStr.charAt(enc2) + JS.Utils.keyStr.charAt(enc3) + Base64.keyStr.charAt(enc4);
-
-        }
-
-        return output;
-    };
-
-    // public method for decoding
-    decode = function (input) {
-        var output = "", chr1, chr2, chr3, enc1, enc2, enc3, enc4, i = 0;
-
-        input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
-
-        while (i < input.length) {
-
-            enc1 = JS.Utils.keyStr.indexOf(input.charAt(i = i + 1));
-            enc2 = JS.Utils.keyStr.indexOf(input.charAt(i = i + 1));
-            enc3 = JS.Utils.keyStr.indexOf(input.charAt(i = i + 1));
-            enc4 = JS.Utils.keyStr.indexOf(input.charAt(i = i + 1));
-
-            chr1 = (enc1 << 2) | (enc2 >> 4);
-            chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
-            chr3 = ((enc3 & 3) << 6) | enc4;
-
-            output = output + String.fromCharCode(chr1);
-
-            if (enc3 !== 64) {
-                output = output + String.fromCharCode(chr2);
-            }
-            if (enc4 !== 64) {
-                output = output + String.fromCharCode(chr3);
-            }
-
-        }
-
-        output = utf8_decode(output);
-
-        return output;
+        return result;
     };
 
     return {
-        encode : encode,
-        decode : decode
+        encode : encodeBase64,
+        decode : decodeBase64
     };
 }(JSTACK));/*
 The MIT License
@@ -427,7 +468,7 @@ JSTACK.Keystone = (function (JS, undefined) {
 
     "use strict";
 
-    var params, STATES, init, authenticate, gettenants, getservicelist, getservice, createuser, edituser, getusers, getusersfortenant, getuser, deleteuser, getroles, getuserroles, adduserrole, removeuserrole, createtenant, edittenant, deletetenant;
+    var params, STATES, init, authenticate, gettenants, getendpoint, getservicelist, getservice, createuser, edituser, getusers, getusersfortenant, getuser, deleteuser, getroles, getuserroles, adduserrole, removeuserrole, createtenant, edittenant, deletetenant;
 
     // `STATES` defines different authentication states. This
     // can be useful for applications to know when they can
@@ -461,7 +502,9 @@ JSTACK.Keystone = (function (JS, undefined) {
         params.adminUrl = adminUrl;
         params.access = undefined;
         params.token = undefined;
+        params.access_token = undefined;
         params.currentstate = STATES.DISCONNECTED;
+        params.version = keystoneUrl.indexOf('v3') === -1 ? 2 : 3;
     };
     // Authentication function
     // ------------------------
@@ -469,28 +512,62 @@ JSTACK.Keystone = (function (JS, undefined) {
     authenticate = function (username, password, token, tenant, callback, error) {
         var credentials = {}, onOK, onError;
         // This authentication needs a `username`, a `password`. Or a `token`.
-        if (token !== undefined) {
-            credentials = {
-                "auth" : {
-                    "token" : {
-                        "id" : token
-                    }
-                }
-            };
-        } else {
-            credentials = {
-                "auth" : {
-                    "passwordCredentials" : {
-                        "username" : username,
-                        "password" : password
-                    }
-                }
-            };
-        }
+        if (params.version === 3) {
 
-        // User also can provide a `tenant`.
-        if (tenant !== undefined) {
-            credentials.auth.tenantId = tenant;
+            if (token !== undefined) {
+                credentials = {
+                    "auth": {
+                        "identity": {
+                            "methods": [
+                                "oauth2"
+                            ],
+                            "oauth2": {
+                                "access_token_id": token
+                            }
+                        }
+                    }
+                }
+            } else {
+                credentials = {
+                    "auth" : {
+                        "passwordCredentials" : {
+                            "username" : username,
+                            "password" : password
+                        }
+                    }
+                };
+            }
+
+            // User also can provide a `tenant`.
+            if (tenant !== undefined) {
+                credentials.auth.scope = {project: {id: tenant}};
+            }
+
+        } else {
+
+            if (token !== undefined) {
+                credentials = {
+                    "auth" : {
+                        "token" : {
+                            "id" : token
+                        }
+                    }
+                };
+            } else {
+                credentials = {
+                    "auth" : {
+                        "passwordCredentials" : {
+                            "username" : username,
+                            "password" : password
+                        }
+                    }
+                };
+            }
+
+            // User also can provide a `tenant`.
+            if (tenant !== undefined) {
+                credentials.auth.tenantId = tenant;
+            }
         }
 
         // During authentication the state will be `AUTHENTICATION`.
@@ -556,7 +633,30 @@ JSTACK.Keystone = (function (JS, undefined) {
         //            "name": "admin"
         //        }
         //       }
-        JS.Comm.post(params.url + "tokens", credentials, undefined, onOK, onError);
+        if (params.version === 3) {
+            JS.Comm.post(params.url + "auth/tokens", credentials, undefined, function (result, headers, token) {
+
+                var resp = {
+                    access:{
+                        token: {
+                            id: token, 
+                            expires: result.token.expires_at, 
+                            tenant: {
+                                id: result.token.project.id,
+                                name: result.token.project.name
+                            }
+                        }, 
+                        serviceCatalog: result.token.catalog,
+                        user: result.token.user
+                    }
+                };
+
+                onOK(resp);
+
+            }, onError);
+        } else {
+            JS.Comm.post(params.url + "tokens", credentials, undefined, onOK, onError);
+        }
     };
 
     // Retreiving service information
@@ -596,6 +696,21 @@ JSTACK.Keystone = (function (JS, undefined) {
         return undefined;
     };
 
+    // Retreiving endpoint information
+    // ------------------------------
+    // The user can also obtain information about each service which is configured in Keystone.
+    getendpoint = function (region, type) {
+        var serv = getservice(type) || {};
+        var endpoint;
+        for (var e in serv.endpoints) {
+            if (serv.endpoints[e].region === region) {
+                endpoint = serv.endpoints[e];
+                break;
+            }
+        }
+        return endpoint;
+    };
+
     // The user can also obtain information about all services configured in Keystone.
     getservicelist = function () {
         // Only if the client is currently authenticated.
@@ -612,7 +727,7 @@ JSTACK.Keystone = (function (JS, undefined) {
         var onOK, onError;
 
         // Only when the user is already authenticated.
-        if (params.currentstate === JS.Keystone.STATES.AUTHENTICATED) {
+        //if (params.currentstate === JS.Keystone.STATES.AUTHENTICATED) {
             // This function will return tenant information following next pattern:
             //
             //         tenants: {
@@ -661,8 +776,15 @@ JSTACK.Keystone = (function (JS, undefined) {
                 url = params.adminUrl
             }
 
-            JS.Comm.get(url + "tenants", params.token, onOK, onError);
-        }
+            if (params.version === 3) {
+                JS.Comm.get(url + "authorized_organizations/" + params.access_token, undefined, function (result) {
+                    onOK({tenants: result.organizations});
+                }, onError);
+            } else {
+                JS.Comm.get(url + "tenants", params.token, onOK, onError);
+            }
+
+        //}
     };
 
 
@@ -793,6 +915,7 @@ JSTACK.Keystone = (function (JS, undefined) {
         init : init,
         authenticate : authenticate,
         gettenants : gettenants,
+        getendpoint: getendpoint,
         getservice : getservice,
         getservicelist : getservicelist,
         createuser : createuser,
@@ -850,7 +973,9 @@ JSTACK.Nova = (function (JS, undefined) {
         deletekeypair, getkeypairdetail, getvncconsole, getconsoleoutput, getattachedvolumes,
         attachvolume, detachvolume, getattachedvolume,getquotalist, updatequota,
         getdefaultquotalist, getsecuritygrouplist, createsecuritygroup, getsecuritygroupdetail,
-        deletesecuritygroup, createsecuritygrouprule, deletesecuritygrouprule, getsecuritygroupforserver;
+        deletesecuritygroup, createsecuritygrouprule, deletesecuritygrouprule, getsecuritygroupforserver,
+        getfloatingIPpools, getfloatingIPs, getfloatingIPdetail, allocatefloatingIP, associatefloatingIP, 
+        disassociatefloatingIP, releasefloatingIP;
 
     // This modules stores the `url`to which it will send every
     // request.
@@ -866,35 +991,32 @@ JSTACK.Nova = (function (JS, undefined) {
 
     // Function `_check` internally confirms that Keystone module is
     // authenticated and it has the URL of the Nova service.
-    // TODO replace true/false with exception throwing and change
-    // all if(!check()) calls.
-    // create Keystone.isAuthenticated() to be used inside check()
-    check = function () {
+    check = function (region) {
         if (JS.Keystone !== undefined &&
                 JS.Keystone.params.currentstate === JS.Keystone.STATES.AUTHENTICATED) {
             var service = JS.Keystone.getservice(params.service);
-            var privateUrl = service.endpoints[0][params.endpointType];
-            //TODO Let the user choose the URL so it is not hardcoded 
-            //params.url = privateUrl.replace(/192.168.[0-9]+.[0-9]+/, "https://cloud.lab.fiware.org/Spain/image/v1");
-            params.url = "https://cloud.lab.fiware.org/Spain2/image/v1";
-            return true;
+            if (service) {
+                //params.url = JSTACK.Comm.getEndpoint(service, region, params.endpointType);
+                params.url = "https://cloud.lab.fiware.org/" + region + "/servers/v2";
+                return true;
+            }
+            return false;            
         }
         return false;
     };
     // This function is used internally to send Actions to server identified
     // with `id`. In `data` we pass the corresponding information about the
     // action.
-    postAction = function (id, data, callback, error) {
+    postAction = function (id, data, callback, error, region) {
         var url, onOk, onError;
 
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
         url = params.url + '/servers/' + id + '/action';
 
         onOk = function (result) {
-
             if (callback !== undefined) {
                 callback(result);
             }
@@ -930,12 +1052,12 @@ JSTACK.Nova = (function (JS, undefined) {
     // This operation provides a list of servers associated with the account. In
     // [Create Server List](http://docs.openstack.org/api/openstack-compute/2/content/List_Servers-d1e2078.html)
     // there is more information about the JSON object that is returned.
-    getserverlist = function (detailed, allTenants, callback, error) {
+    getserverlist = function (detailed, allTenants, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
-        url = 'https://cloud.lab.fiware.org/Spain2/compute/v2/' + JSTACK.Keystone.params.access.project.id + '/servers';
+        url = 'https://cloud.lab.fiware.org/' + region + '/compute/v2/' + JSTACK.Keystone.params.access.project.id + '/servers';
         if (detailed !== undefined && detailed) {
             url += '/detail';
         }
@@ -960,9 +1082,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // This operation returns the details of a specific server by its `id`. In
     // [Get Server Details](http://docs.openstack.org/api/openstack-compute/2/content/Get_Server_Details-d1e2623.html)
     // there is more information about the JSON object that is returned.
-    getserverdetail = function (id, callback, error) {
+    getserverdetail = function (id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/servers/' + id;
@@ -986,9 +1108,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // and in
     // [List Addresses by Network](http://docs.openstack.org/api/openstack-compute/2/content/List_Addresses_by_Network-d1e3118.html)
     // there is more information about the JSON object that is returned.
-    getserverips = function (id, networkID, callback, error) {
+    getserverips = function (id, networkID, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/servers/' + id + '/ips';
@@ -1013,9 +1135,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // This operation updates the the `name` of the server given by its `id`. In
     // [Server Update](http://docs.openstack.org/api/openstack-compute/2/content/ServerUpdate.html)
     // there is more information about the JSON object that is returned.
-    updateserver = function (id, name, callback, error) {
+    updateserver = function (id, name, callback, error, region) {
         var url, onOK, onError, data;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/servers/' + id;
@@ -1079,19 +1201,30 @@ JSTACK.Nova = (function (JS, undefined) {
     //
     // In [Create Servers](http://docs.openstack.org/api/openstack-compute/2/content/CreateServers.html)
     // there is more information about the JSON object that is returned.
-    createserver = function (name, imageRef, flavorRef, key_name, user_data, security_groups, min_count, max_count, availability_zone, callback, error) {
-        var url, onOK, onError, data, groups = [], i, group;
-        if (!check()) {
+    createserver = function (name, imageRef, flavorRef, key_name, user_data, security_groups, min_count, max_count, availability_zone, networks, block_device_mapping, metadata, callback, error, region) {
+        var url, onOK, onError, data, groups = [], i, group, nets = [], urlPost;
+        if (!check(region)) {
             return;
         }
-
+        
         data = {
             "server" : {
                 "name" : name,
                 "imageRef" : imageRef,
                 "flavorRef" : flavorRef
+                //"nics": nics
             }
         };
+
+        if (metadata) {
+            data.server.metadata = metadata;
+        }
+
+        if (block_device_mapping !== undefined) {
+            urlPost = "/os-volumes_boot";      
+        } else {
+            urlPost = "/servers";
+        }
 
         if (key_name !== undefined) {
             data.server.key_name = key_name;
@@ -1099,6 +1232,10 @@ JSTACK.Nova = (function (JS, undefined) {
 
         if (user_data !== undefined) {
             data.server.user_data = JS.Utils.encode(user_data);
+        }
+
+        if (block_device_mapping !== undefined) {
+            data.server.block_device_mapping = block_device_mapping;
         }
 
         if (security_groups !== undefined) {
@@ -1130,6 +1267,10 @@ JSTACK.Nova = (function (JS, undefined) {
             data.server.availability_zone = JS.Utils.encode(availability_zone);
         }
 
+        if (networks !== undefined) {
+            data.server.networks = networks;
+        }
+
         onOK = function (result) {
             if (callback !== undefined) {
                 callback(result);
@@ -1141,15 +1282,15 @@ JSTACK.Nova = (function (JS, undefined) {
             }
         };
 
-        JS.Comm.post('https://cloud.lab.fiware.org/Spain2/compute/v2/' + JSTACK.Keystone.params.access.project.id + '/servers', data, JS.Keystone.params.token, onOK, onError);
+        JS.Comm.post("https://cloud.lab.fiware.org/" + region + "/compute/v2/" + JS.Keystone.params.access.project.id + urlPost, data, JS.Keystone.params.token, onOK, onError);
 
     };
     // This operation deletes a cloud server instance from the system.
     // In [Delete Server](http://docs.openstack.org/api/openstack-compute/2/content/Delete_Server-d1e2883.html)
     // there is more information.
-    deleteserver = function (id, callback, error) {
+    deleteserver = function (id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/servers/' + id;
@@ -1176,7 +1317,7 @@ JSTACK.Nova = (function (JS, undefined) {
     // This operation changes the server's administrator password.
     // In [Change Password](http://docs.openstack.org/api/openstack-compute/2/content/Change_Password-d1e3234.html)
     // there is more information.
-    changepasswordserver = function (id, adminPass, callback, error) {
+    changepasswordserver = function (id, adminPass, callback, error, region) {
         var data;
         if (adminPass === undefined) {
             return;
@@ -1188,27 +1329,27 @@ JSTACK.Nova = (function (JS, undefined) {
             }
         };
 
-        postAction(id, data, callback, error);
+        postAction(id, data, callback , error, region);
     };
     // This operation allows for a hard reboot that is the equivalent of power
     // cycling the server.
-    rebootserverhard = function (id, callback, error) {
+    rebootserverhard = function (id, callback, error, region) {
         postAction(id, {
             "reboot" : {
                 "type" : "HARD"
             }
-        }, callback, error);
+        }, callback , error, region);
     };
     // This operation allows for a soft reboot, which allows for a graceful
     // shutdown of all processes.
     // In [Reboot Server](http://docs.openstack.org/api/openstack-compute/2/content/Reboot_Server-d1e3371.html)
     // there is more information about hard and soft reboots.
-    rebootserversoft = function (id, callback, error) {
+    rebootserversoft = function (id, callback, error, region) {
         postAction(id, {
             "reboot" : {
                 "type" : "SOFT"
             }
-        }, callback, error);
+        }, callback , error, region);
     };
     // The resize function converts an existing server to a different flavor,
     // in essence, scaling the server up or down. The original server is saved
@@ -1218,12 +1359,12 @@ JSTACK.Nova = (function (JS, undefined) {
     // confirmed after 24 hours if they are not explicitly confirmed or reverted.
     // In [Resize Server](http://docs.openstack.org/api/openstack-compute/2/content/Resize_Server-d1e3707.html)
     // there is more information.
-    resizeserver = function (id, flavorRef, callback, error) {
+    resizeserver = function (id, flavorRef, callback, error, region) {
         postAction(id, {
             "resize" : {
                 "flavorRef" : flavorRef
             }
-        }, callback, error);
+        }, callback , error, region);
     };
     // During a resize operation, the original server is saved for a period of
     // time to allow roll back if there is a problem. Once the newly resized
@@ -1234,61 +1375,61 @@ JSTACK.Nova = (function (JS, undefined) {
     // confirmed or reverted.
     // In [Confirm Resized Server](http://docs.openstack.org/api/openstack-compute/2/content/Confirm_Resized_Server-d1e3868.html)
     // there is more information.
-    confirmresizedserver = function (id, callback, error) {
+    confirmresizedserver = function (id, callback, error, region) {
         postAction(id, {
             "confirmResize" : null
-        }, callback, error);
+        }, callback , error, region);
     };
     // In [Revert Resized Server](http://docs.openstack.org/api/openstack-compute/2/content/Revert_Resized_Server-d1e4024.html)
     // there is more information.
-    revertresizedserver = function (id, callback, error) {
+    revertresizedserver = function (id, callback, error, region) {
         postAction(id, {
             "revertResize" : null
-        }, callback, error);
+        }, callback , error, region);
     };
     // It halts a running server. Changes status to STOPPED.
     // In [Start Server](http://api.openstack.org/) there is more information.
-    startserver = function (id, callback, error) {
+    startserver = function (id, callback, error, region) {
         postAction(id, {
             "os-start" : null
-        }, callback, error);
+        }, callback , error, region);
     };
     // Returns a STOPPED server to ACTIVE status.
     // In [Stop Server](http://api.openstack.org/) there is more information.
-    stopserver = function (id, callback, error) {
+    stopserver = function (id, callback, error, region) {
         postAction(id, {
             "os-stop" : null
-        }, callback, error);
+        }, callback , error, region);
     };
     // It pauses a running server. Changes status to PAUSED.
-    pauseserver = function (id, callback, error) {
+    pauseserver = function (id, callback, error, region) {
         postAction(id, {
             "pause" : null
-        }, callback, error);
+        }, callback , error, region);
     };
     // Returns a PAUSED server to ACTIVE status.
-    unpauseserver = function (id, callback, error) {
+    unpauseserver = function (id, callback, error, region) {
         postAction(id, {
             "unpause" : null
-        }, callback, error);
+        }, callback , error, region);
     };
     // It pauses a running server. Changes status to SUSPENDED.
-    suspendserver = function (id, callback, error) {
+    suspendserver = function (id, callback, error, region) {
         postAction(id, {
             "suspend" : null
-        }, callback, error);
+        }, callback , error, region);
     };
     // Returns a SUSPENDED server to ACTIVE status.
-    resumeserver = function (id, callback, error) {
+    resumeserver = function (id, callback, error, region) {
         postAction(id, {
             "resume" : null
-        }, callback, error);
+        }, callback , error, region);
     };
     // This action creates a new image for the given server. Once complete, a
     // new image will be available that can be used to rebuild or create servers.
     // In [Create Image](http://docs.openstack.org/api/openstack-compute/2/content/Create_Image-d1e4655.html)
     // there is more information.
-    createimage = function (id, name, metadata, callback, error) {
+    createimage = function (id, name, metadata, callback, error, region) {
         var data = {
             "createImage" : {
                 'name' : name
@@ -1301,16 +1442,16 @@ JSTACK.Nova = (function (JS, undefined) {
             data.createImage.metadata = metadata;
         }
 
-        postAction(id, data, callback, error);
+        postAction(id, data, callback , error, region);
     };
     // **Flavor Operations**
 
     // This operation will list all available flavors.
     // In [List Flavors](http://docs.openstack.org/api/openstack-compute/2/content/List_Flavors-d1e4188.html)
     // there is more information.
-    getflavorlist = function (detailed, callback, error) {
+    getflavorlist = function (detailed, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/flavors';
@@ -1334,9 +1475,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // This operation returns details of the specified flavor.
     // In [Get Flavor Details](http://docs.openstack.org/api/openstack-compute/2/content/Get_Flavor_Details-d1e4317.html)
     // there is more information.
-    getflavordetail = function (id, callback, error) {
+    getflavordetail = function (id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/flavors/' + id;
@@ -1358,9 +1499,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // flavor, the number of GB of root `disk`, the number of GB of `ephemeral` disk,
     // the number of MB of `swap` space, and the `rxtx_factor`.
     // Arguments `ephemeral`, `swap`, `rxtx_factor` and `callback` are optional.
-    createflavor = function (name, ram, vcpus, disk, flavorid, ephemeral, swap, rxtx_factor, callback, error) {
+    createflavor = function (name, ram, vcpus, disk, flavorid, ephemeral, swap, rxtx_factor, callback, error, region) {
         var url, onOK, onError, data;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/flavors';
@@ -1404,9 +1545,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // This operation deletes flavor, specified by its `id`.
     // In [Get Flavor Details](http://docs.openstack.org/api/openstack-compute/2/content/Get_Flavor_Details-d1e4317.html)
     // there is more information.
-    deleteflavor = function (id, callback, error) {
+    deleteflavor = function (id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/flavors/' + id;
@@ -1434,15 +1575,16 @@ JSTACK.Nova = (function (JS, undefined) {
     // for install.
     // In [List Images](http://docs.openstack.org/api/openstack-compute/2/content/List_Images-d1e4435.html)
     // there is more information.
-    getimagelist = function (detailed, callback, error) {
+    getimagelist = function (detailed, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/images';
         if (detailed !== undefined && detailed) {
             url += '/detail';
         }
+        url += '?limit=100';
 
         onOK = function (result) {
             if (callback !== undefined) {
@@ -1460,9 +1602,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // This operation returns details of the image specified by its `id`.
     // In [Get Image Details](http://docs.openstack.org/api/openstack-compute/2/content/Get_Image_Details-d1e4848.html)
     // there is more information.
-    getimagedetail = function (id, callback, error) {
+    getimagedetail = function (id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/images/' + id;
@@ -1484,9 +1626,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // to track the delete operation.
     // In [Delete Image](http://docs.openstack.org/api/openstack-compute/2/content/Delete_Image-d1e4957.html)
     // there is more information.
-    deleteimage = function (id, callback, error) {
+    deleteimage = function (id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/images/' + id;
@@ -1504,9 +1646,9 @@ JSTACK.Nova = (function (JS, undefined) {
         JS.Comm.del(url, JS.Keystone.params.token, onOK, onError);
     };
     // This operation retrieves a list of available Key-pairs.
-    getkeypairlist = function (callback, error) {
+    getkeypairlist = function (callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/os-keypairs';
@@ -1525,16 +1667,16 @@ JSTACK.Nova = (function (JS, undefined) {
         JS.Comm.get(url, JS.Keystone.params.token, onOK, onError);
     };
     // This operation creates a new Key-pair.
-    createkeypair = function (name, pubkey, callback, error) {
+    createkeypair = function (name, pubkey, callback, error, region) {
         var url, onOK, onError, body;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/os-keypairs';
 
         onOK = function (result) {
             if (callback !== undefined) {
-                callback(result);
+                callback(result.keypair);
             }
         };
         onError = function (message) {
@@ -1556,9 +1698,9 @@ JSTACK.Nova = (function (JS, undefined) {
         JS.Comm.post(url, body, JS.Keystone.params.token, onOK, onError);
     };
     // This operation deletes a  Key-pair.
-    deletekeypair = function (id, callback, error) {
+    deletekeypair = function (id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/os-keypairs/' + id;
@@ -1577,9 +1719,9 @@ JSTACK.Nova = (function (JS, undefined) {
         JS.Comm.del(url, JS.Keystone.params.token, onOK, onError);
     };
     // This operation shows a Key-pair associated with the account.
-    getkeypairdetail = function (keypair_name,callback, error) {
+    getkeypairdetail = function (keypair_name,callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/os-keypairs/' + keypair_name;
@@ -1600,9 +1742,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // Get a vnc console for an instance
     // id: The server's ID to get the vnc console from.
     // console_type: Type of vnc console to get ('novnc' or 'xvpvnc')
-    getvncconsole = function (id, console_type, callback, error) {
+    getvncconsole = function (id, console_type, callback, error, region) {
         var data;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
@@ -1616,14 +1758,14 @@ JSTACK.Nova = (function (JS, undefined) {
             }
         };
 
-        postAction(id, data, callback, error);
+        postAction(id, data, callback , error, region);
     };
     //  Get text console log output from Server.
     // id: The server's ID to get the vnc console from.
     // length: The number of tail loglines you would like to retrieve.
-    getconsoleoutput = function (id, length, callback, error) {
+    getconsoleoutput = function (id, length, callback, error, region) {
         var data;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
@@ -1637,13 +1779,13 @@ JSTACK.Nova = (function (JS, undefined) {
             }
         };
 
-        postAction(id, data, callback, error);
+        postAction(id, data, callback , error, region);
     };
     //  Lists the volume attachments for the specified server.
     // id: The server's ID to get the volume attachments from.
-    getattachedvolumes = function (id, callback, error) {
+    getattachedvolumes = function (id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/servers/' + id + '/os-volume_attachments';
@@ -1665,9 +1807,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // id: The server's ID.
     // volume_id: The volume's ID to be attached to the server.
     // device: The device where we want to attach this volume.
-    attachvolume = function (id, volume_id, device, callback, error) {
+    attachvolume = function (id, volume_id, device, callback, error, region) {
         var url, onOK, onError, data;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
@@ -1701,9 +1843,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // Deletes the specified volume attachment from the specified server.
     // id: The server's ID.
     // volume_id: The volume's ID to be detached from the server.
-    detachvolume = function (id, volume_id, callback, error) {
+    detachvolume = function (id, volume_id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
@@ -1730,9 +1872,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // Lists volume details for the specified volume attachment ID.
     // id: The server's ID.
     // volume_id: The volume's ID.
-    getattachedvolume = function (id, volume_id, callback, error) {
+    getattachedvolume = function (id, volume_id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
@@ -1758,19 +1900,18 @@ JSTACK.Nova = (function (JS, undefined) {
     };
 
 
+
     // APIs for quotas//
 
     // List the quotas for a specific tenant
     // tentnat_id: Id of the tenant for which we check the quota
 
-    getquotalist = function (callback, error) {
-        var url, urlAux, onOK, onError, tenant_id;
-        if (!check()) {
+    getquotalist = function (tenant_id, callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
             return;
         }
 
-    urlAux = params.url.split('/');
-        tenant_id = urlAux[urlAux.length-1];
         url = params.url + '/os-quota-sets/' + tenant_id;
 
         onOK = function (result) {
@@ -1792,31 +1933,64 @@ JSTACK.Nova = (function (JS, undefined) {
     // instances, cores, ram, volumes, gigabytes, floating_ips, metadata_items, injected_files,
     // injected_file_content_bytes, injected_file_path_bytes, security_groups, security_group_rules,
     // key_pairs: New parameters for the creating quota
-    // example to call API: JSTACK.Nova.updatequota('c0ac228044d34367a4d07b60b6526675', 50, 50, 51200, 10, 1000, 10, 128, 5, 10240, 255, 10, 20, 100, printAll);
-
-    updatequota = function (tenant_id, instances, cores, ram, volumes, gigabytes, floating_ips,
-                  metadata_items, injected_files, injected_file_content_bytes, injected_file_path_bytes,
-                  security_groups, security_group_rules, key_pairs, callback, error) {
+    // example to call API: JSTACK.Nova.updatequota("26b77c04cda6408c972244898f8a3925", 10, 30, 51200, 10, 1000, undefined, 128, 6, 10240, undefined, 10, 20, undefined, printAll);
+    
+    updatequota = function (
+                            tenant_id, 
+                            instances, 
+                            cores, 
+                            ram, 
+                            volumes, 
+                            gigabytes, 
+                            floating_ips,
+                            metadata_items, 
+                            injected_files, 
+                            injected_file_content_bytes, 
+                            injected_file_path_bytes,
+                            security_groups, 
+                            security_group_rules, 
+                            key_pairs, 
+                            callback, 
+                            error, region) {
 
         var url, data, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
         url = params.url + '/os-quota-sets/' + tenant_id;
 
+        if  ( (instances == undefined)&&(cores == undefined)&&(ram == undefined)&&(volumes == undefined)
+            &&(gigabytes == undefined)&&(floating_ips == undefined)&&(metadata_items == undefined)
+            &&(injected_files == undefined)&&(injected_file_content_bytes == undefined)
+            &&(injected_file_path_bytes == undefined)&&(security_groups == undefined)&&
+            (security_group_rules == undefined)&&(key_pairs == undefined) ) {
+            return;
+        }
+
         data = {
-            'quota_set': {'instances': instances, 'cores': cores,
-                              'ram': ram, 'volumes': volumes,
-                              'gigabytes': gigabytes, 'floating_ips': floating_ips,
-                              'metadata_items': metadata_items, 'injected_files': injected_files,
-                              'injected_file_content_bytes': injected_file_content_bytes,
-                              'injected_file_path_bytes': injected_file_path_bytes,
-                              'security_groups': security_groups,
-                              'security_group_rules': security_group_rules,
-                              'key_pairs': key_pairs}
+            'quota_set': {  'instances': instances, 
+                            'cores': cores,
+                            'ram': ram,
+                            'volumes': volumes,
+                            'gigabytes': gigabytes, 
+                            'floating_ips': floating_ips,
+                            'metadata_items': metadata_items, 
+                            'injected_files': injected_files,
+                            'injected_file_content_bytes': injected_file_content_bytes,
+                            'injected_file_path_bytes': injected_file_path_bytes,
+                            'security_groups': security_groups,
+                            'security_group_rules': security_group_rules,
+                            'key_pairs': key_pairs,
+                            "id": tenant_id}
 
         };
+
+        for (var key in data.quota_set) {
+            if (data.quota_set[key] == undefined) {
+                delete data.quota_set[key];
+            }
+        }   
 
         onOK = function (result) {
             if (callback !== undefined) {
@@ -1829,15 +2003,15 @@ JSTACK.Nova = (function (JS, undefined) {
             }
         };
 
-        JS.Comm.post(url, data, JS.Keystone.params.token, onOK, onError);
+        JS.Comm.put(url, data, JS.Keystone.params.token, onOK, onError);
     };
 
     // List the default quota
     // tenant_id:  Id of the tenant for which we list the default quota
 
-    getdefaultquotalist = function (tenant_id, callback, error) {
+    getdefaultquotalist = function (tenant_id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
@@ -1857,13 +2031,14 @@ JSTACK.Nova = (function (JS, undefined) {
         JS.Comm.get(url, JS.Keystone.params.token, onOK, onError);
     };
 
+
     // APIs for security groups
 
     // List the security groups
 
-    getsecuritygrouplist = function (callback, error) {
+    getsecuritygrouplist = function (callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
@@ -1887,9 +2062,9 @@ JSTACK.Nova = (function (JS, undefined) {
      // name: name of the new security group
      // description: description for the creating security group
 
-    createsecuritygroup = function (name, description, callback, error) {
+    createsecuritygroup = function (name, description, callback, error, region) {
         var url, data, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
@@ -1902,6 +2077,7 @@ JSTACK.Nova = (function (JS, undefined) {
         };
 
         onOK = function (result) {
+            console.log(callback);
             if (callback !== undefined) {
                 callback(result);
             }
@@ -1919,9 +2095,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // Returns details for the specific security group
     // sec_group_id: Id of the consulting security group
 
-    getsecuritygroupdetail = function (sec_group_id, callback, error) {
+    getsecuritygroupdetail = function (sec_group_id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
@@ -1945,9 +2121,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // Deletes a security group
     // sec_group_id: Id of the security group to delete
 
-    deletesecuritygroup = function (sec_group_id, callback, error) {
+    deletesecuritygroup = function (sec_group_id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
@@ -1972,9 +2148,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // ip_protocol, from_port, to_port, cidr, group_id, parent_group_id: New parameters for
     // the creating security group rule
 
-    createsecuritygrouprule = function (ip_protocol, from_port, to_port, cidr, group_id, parent_group_id, callback, error) {
+    createsecuritygrouprule = function (ip_protocol, from_port, to_port, cidr, group_id, parent_group_id, callback, error, region) {
         var url, data, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
@@ -2009,9 +2185,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // Deletes security group rule
     // sec_group_rule_id: Id of the security group rule
 
-    deletesecuritygrouprule = function (sec_group_rule_id, callback, error) {
+    deletesecuritygrouprule = function (sec_group_rule_id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
@@ -2035,9 +2211,9 @@ JSTACK.Nova = (function (JS, undefined) {
     // Consults security group for specific server
     // server_id: Id of the server for which to consult the security group
 
-    getsecuritygroupforserver = function (server_id, callback, error) {
+    getsecuritygroupforserver = function (server_id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
@@ -2055,6 +2231,187 @@ JSTACK.Nova = (function (JS, undefined) {
         };
 
         JS.Comm.get(url, JS.Keystone.params.token, onOK, onError);
+
+    };
+
+    // APIs for floating IPs
+
+    getfloatingIPpools = function (callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+
+        url = params.url + '/os-floating-ip-pools';
+
+        onOK = function (result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function (message) {
+            error(message);
+            throw new Error(message);
+        };
+
+        JS.Comm.get(url, JS.Keystone.params.token, onOK, onError);
+
+    };
+
+    getfloatingIPs = function (callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+
+        url = params.url + '/os-floating-ips';
+
+        onOK = function (result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function (message) {
+            error(message);
+            throw new Error(message);
+        };
+
+        JS.Comm.get(url, JS.Keystone.params.token, onOK, onError);
+
+    };
+
+    getfloatingIPdetail = function (id, callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+
+        url = params.url + '/os-floating-ips/' +id;
+
+        onOK = function (result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function (message) {
+            error(message);
+            throw new Error(message);
+        };
+
+        JS.Comm.get(url, JS.Keystone.params.token, onOK, onError);
+
+    };
+
+    allocatefloatingIP = function (pool, callback, error, region) {
+        var url, onOK, onError, data;
+        if (!check(region)) {
+            return;
+        }
+
+        url = params.url + '/os-floating-ips';
+
+        if (pool !== undefined) {
+
+            data = {
+
+                "pool": pool
+            };
+        }         
+
+        onOK = function (result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function (message) {
+            error(message);
+            throw new Error(message);
+        };
+
+        JS.Comm.post(url, data, JS.Keystone.params.token, onOK, onError);
+
+    };
+
+    associatefloatingIP = function (server_id, address, fixed_address, callback, error, region) {
+        var url, onOK, onError, data;
+        if (!check(region)) {
+            return;
+        }
+
+        url = params.url + '/servers/' + server_id + '/action';
+
+        data =  {
+                "addFloatingIp": {
+                    "address": address
+                }
+        };
+
+        if (fixed_address !== undefined) {
+            data.addFloatingIp["fixed_address"] = fixed_address;
+        }
+
+        onOK = function (result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function (message) {
+            error(message);
+            throw new Error(message);
+        };
+
+        JS.Comm.post(url, data, JS.Keystone.params.token, onOK, onError);
+
+    };
+
+    releasefloatingIP = function (id, callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+
+        url = params.url + '/os-floating-ips/' +id;
+
+        onOK = function (result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function (message) {
+            error(message);
+            throw new Error(message);
+        };
+
+        JS.Comm.del(url, JS.Keystone.params.token, onOK, onError);
+
+    };
+
+
+    disassociatefloatingIP = function (server_id, address, callback, error, region) {
+        var url, onOK, onError, data;
+        if (!check(region)) {
+            return;
+        }
+
+        url = params.url + '/servers/' + server_id + '/action';
+
+        data =  {
+                "removeFloatingIp": {
+                    "address": address
+                }
+        };
+
+        onOK = function (result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function (message) {
+            error(message);
+            throw new Error(message);
+        };
+
+        JS.Comm.post(url, data, JS.Keystone.params.token, onOK, onError);
 
     };
 
@@ -2112,7 +2469,14 @@ JSTACK.Nova = (function (JS, undefined) {
         deletesecuritygroup : deletesecuritygroup,
         createsecuritygrouprule : createsecuritygrouprule,
         deletesecuritygrouprule : deletesecuritygrouprule,
-        getsecuritygroupforserver : getsecuritygroupforserver
+        getsecuritygroupforserver : getsecuritygroupforserver,
+        getfloatingIPpools : getfloatingIPpools,
+        getfloatingIPs : getfloatingIPs,
+        getfloatingIPdetail : getfloatingIPdetail,
+        allocatefloatingIP : allocatefloatingIP,
+        associatefloatingIP : associatefloatingIP,
+        disassociatefloatingIP : disassociatefloatingIP,
+        releasefloatingIP : releasefloatingIP
     };
 
 }(JSTACK));
@@ -2140,11 +2504,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-// JStack Nova Volume Module
+// JStack Cinder Module
 // ------------------
 
 // Allows you to manage volumes and snapshots that can be used with the Compute API.
-JSTACK.Nova.Volume = (function (JS, undefined) {
+JSTACK.Cinder = (function (JS, undefined) {
     "use strict";
     var params, check, configure, getvolumelist, createvolume, deletevolume, getvolume,
         getsnapshotlist, createsnapshot, deletesnapshot, getsnapshot;
@@ -2161,14 +2525,15 @@ JSTACK.Nova.Volume = (function (JS, undefined) {
 
     // Function `check` internally confirms that Keystone module is
     // authenticated and it has the URL of the Volume service.
-    // TODO replace true/false with exception throwing and change
-    // all if(!check()) calls.
-    check = function () {
+    check = function (region) {
         if (JS.Keystone !== undefined && JS.Keystone.params.currentstate === JS.Keystone.STATES.AUTHENTICATED) {
             var service = JS.Keystone.getservice("volume");
-            //params.url = service.endpoints[0][params.endpointType];
-            params.url = "https://cloud.lab.fiware.org/Spain2/volume/v1/" + JSTACK.Keystone.params.access.project.id;
-            return true;
+            if (service) {
+                //params.url = JSTACK.Comm.getEndpoint(service, region, params.endpointType);
+                params.url = 'https://cloud.lab.fiware.org/' + region + '/volume/v2/' + JS.Keystone.params.access.project.id;
+                return true;
+            }
+            return false;
         }
         return false;
     };
@@ -2195,9 +2560,9 @@ JSTACK.Nova.Volume = (function (JS, undefined) {
     // View a list of simple Volume entities. In
     // [Requesting a List of Volumes](http://api.openstack.org/)
     // there is more information about the JSON object that is returned.
-    getvolumelist = function (detailed, callback, error) {
+    getvolumelist = function (detailed, callback, error, region) {
         var url, onOk, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/volumes';
@@ -2231,9 +2596,9 @@ JSTACK.Nova.Volume = (function (JS, undefined) {
     //
     // * The `description` of the volume
     //
-    createvolume = function (size, name, description, callback, error) {
+    createvolume = function (size, name, description, callback, error, region) {
         var onOk, onError, data;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
@@ -2267,9 +2632,9 @@ JSTACK.Nova.Volume = (function (JS, undefined) {
     // Delete a Volume entitiy. In
     // [Deleting a Volume](http://api.openstack.org/)
     // there is more information about the JSON object that is returned.
-    deletevolume = function (id, callback, error) {
+    deletevolume = function (id, callback, error, region) {
         var url, onOk, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/volumes/' + id;
@@ -2290,9 +2655,9 @@ JSTACK.Nova.Volume = (function (JS, undefined) {
     // Get a Volume entitiy. In
     // [Retrieving a Volume](http://api.openstack.org/)
     // there is more information about the JSON object that is returned.
-    getvolume = function (id, callback, error) {
+    getvolume = function (id, callback, error, region) {
         var url, onOk, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/volumes/' + id;
@@ -2316,9 +2681,9 @@ JSTACK.Nova.Volume = (function (JS, undefined) {
     // View a list of simple Snapshot entities. In
     // [Requesting a List of Snapshots](http://api.openstack.org/)
     // there is more information about the JSON object that is returned.
-    getsnapshotlist = function (detailed, callback, error) {
+    getsnapshotlist = function (detailed, callback, error, region) {
         var url, onOk, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/snapshots';
@@ -2352,9 +2717,9 @@ JSTACK.Nova.Volume = (function (JS, undefined) {
     //
     // * The `description` of the snapshot
     //
-    createsnapshot = function (volume_id, name, description, callback, error) {
+    createsnapshot = function (volume_id, name, description, callback, error, region) {
         var url, onOk, onError, data;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
 
@@ -2389,9 +2754,9 @@ JSTACK.Nova.Volume = (function (JS, undefined) {
     // Delete a Snapshot entitiy. In
     // [Retrieving a Snapshot](http://api.openstack.org/)
     // there is more information about the JSON object that is returned.
-    deletesnapshot = function (id, callback, error) {
+    deletesnapshot = function (id, callback, error, region) {
         var url, onOk, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/snapshots/' + id;
@@ -2412,9 +2777,9 @@ JSTACK.Nova.Volume = (function (JS, undefined) {
     // Get a Snapshot entitiy. In
     // [Retrieving a Snapshot](http://api.openstack.org/)
     // there is more information about the JSON object that is returned.
-    getsnapshot = function (id, callback, error) {
+    getsnapshot = function (id, callback, error, region) {
         var url, onOk, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/snapshots/' + id;
@@ -2479,7 +2844,7 @@ THE SOFTWARE.
 // This module provides Glance API functions.
 JSTACK.Glance = (function(JS, undefined) {
     "use strict";
-    var params, check, configure, getimagelist, getimagedetail, updateimage;
+    var params, check, getVersion, configure, getimagelist, getimagedetail, updateimage;
 
     // This modules stores the `url`to which it will send every
     // request.
@@ -2494,15 +2859,31 @@ JSTACK.Glance = (function(JS, undefined) {
 
     // Function `check` internally confirms that Keystone module is
     // authenticated and it has the URL of the Glance service.
-    check = function() {
+    check = function(region) {
         if (JS.Keystone !== undefined && JS.Keystone.params.currentstate === JS.Keystone.STATES.AUTHENTICATED) {
             var service = JS.Keystone.getservice("image");
-            //params.url = service.endpoints[0][params.endpointType];
-            params.url = 'https://cloud.lab.fiware.org/Spain2/image/v1';
+            //params.url = JSTACK.Comm.getEndpoint(service, region, params.endpointType);
+            params.url = "https://cloud.lab.fiware.org/" + region + "/image/v1";
             return true;
         }
         return false;
     };
+
+    // Function `getVersion` returns the version of Glance API server is using.
+    getVersion = function(region) {
+        if (!check(region)) {
+            return 0;
+        }
+        var service = JS.Keystone.getservice("image");
+        params.url = JSTACK.Comm.getEndpoint(service, region, params.endpointType);
+        if (params.url.match(/v1/)) {
+            return 1;
+        } else if (params.url.match(/v2/)) {
+            return 2;
+        }
+        return 0;
+    }
+
     // Public functions
     // ----------------
     //
@@ -2525,16 +2906,17 @@ JSTACK.Glance = (function(JS, undefined) {
     // This operation provides a list of images associated with the account. In
     // [Requesting a List of Public VM Images](http://docs.openstack.org/cactus/openstack-compute/admin/content/requesting-vm-list.html)
     // there is more information about the JSON object that is returned.
-    getimagelist = function(detailed, callback, error) {
+    getimagelist = function(detailed, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
-            // FIXME with exception
+        if (!check(region)) {
             return;
         }
         url = params.url + '/images';
-        if (detailed !== undefined && detailed) {
+        if (detailed !== undefined && detailed && url.match(/v1/)) {
             url += '/detail';
         }
+
+        url += '?limit=100';
 
         onOK = function(result) {
             if (callback !== undefined) {
@@ -2554,29 +2936,38 @@ JSTACK.Glance = (function(JS, undefined) {
     // This operation provides a list of images associated with the account. In
     // [Requesting a List of Public VM Images](http://docs.openstack.org/cactus/openstack-compute/admin/content/requesting-vm-list.html)
     // there is more information about the JSON object that is returned.
-    getimagedetail = function(id, callback, error) {
+    getimagedetail = function(id, callback, error, region) {
         var url, onOK, onError;
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/images/' + id;
 
         onOK = function(result, headers) {
             if (callback !== undefined) {
-                var model = {};
-                var heads = headers.split("\r\n");
-                heads.forEach(function(head) {
-                    if (head.indexOf('x-image-meta') === -1) {
-                        return;
-                    }
-                    var reg = head.match(/^([\w\d\-\_]*)\: (.*)$/);
-                    var value = reg[1];
-                    var key = reg[2];
-                    var data = value.split('-');
-                    var attr = data[data.length - 1];
-                    model[attr] = key;
-                });
-                callback(model, headers);
+                switch(getVersion(region)) {
+                    case 1:
+                        var model = {};
+                        var heads = headers.split("\r\n");
+                        heads.forEach(function(head) {
+                            if (head.indexOf('x-image-meta') === -1) {
+                                return;
+                            }
+                            var reg = head.match(/^([\w\d\-\_]*)\: (.*)$/);
+                            var value = reg[1];
+                            var key = reg[2];
+                            var data = value.split('-');
+                            var attr = data[data.length - 1];
+                            model[attr] = key;
+                        });
+                        callback(model, headers);
+                        break;
+                    case 2:
+                        callback(result);
+                        break;
+                    default:
+                        break;
+                }
             }
         };
         onError = function(message) {
@@ -2585,27 +2976,203 @@ JSTACK.Glance = (function(JS, undefined) {
             }
         };
 
-        JS.Comm.head(url, JS.Keystone.params.token, onOK, onError);
+        switch(getVersion(region)) {
+            case 1:
+                JS.Comm.head(url, JS.Keystone.params.token, onOK, onError);
+                break;
+            case 2:
+                JS.Comm.get(url, JS.Keystone.params.token, onOK, onError);
+                break;
+            default:
+                break;
+        }
     };
 
     // This operation updates details of the image specified by its `id`.
     // In [Update Image Details](http://api.openstack.org/api-ref.html)
     // there is more information.
-    updateimage = function(id, name, is_public, min_ram, min_disk, properties, callback, error) {
+    updateimage = function(id, name, visibility, properties, callback, error, region) {
         var url, onOK, onError;
         var headers = {};
         var prefix = "x-image-meta-";
-        if (!check()) {
+        if (!check(region)) {
             return;
         }
         url = params.url + '/images/' + id;
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+        switch(getVersion(region)) {
+            case 1:
+                if (name) {
+                    headers[prefix+'name'] = name;
+                }
+                if (visibility === "public") {
+                    headers[prefix+'is_public'] = "true";
+                } else {
+                    headers[prefix+'is_public'] = "false";
+                }
+                properties = properties || {};
+                for (var propKey in properties) {
+                    headers[prefix+"property-"+propKey] = properties[propKey];
+                }
+                JS.Comm.put(url, undefined, JS.Keystone.params.token, onOK, onError, headers);
+                break;
+            case 2:
+                var data = [];
+                if (name) {
+                    data.push({op: "replace", path: "/name", value: name});
+                }
+                if (visibility) {
+                    data.push({op: "replace", path: "/visibility", value: visibility});
+                }
+                JS.Comm.patch(url, data, JS.Keystone.params.token, onOK, onError, headers);
+            default:
+            break;
+        }
+    };
+    // Public Functions and Variables
+    // ------------------------------
+    // This is the list of available public functions and variables
+    return {
 
-        if (name) {headers[prefix+'name'] = name};
-        if (is_public) {headers[prefix+'is_public'] = is_public};
-        if (min_ram) {headers[prefix+'min_ram'] = min_ram};
-        if (min_disk) {headers[prefix+'min_disk'] = min_disk};
-        for (var propKey in properties) {
-            headers[prefix+"property-"+propKey] = properties[propKey];
+        // Functions:
+        configure: configure,
+        getimagelist: getimagelist,
+        getimagedetail: getimagedetail,
+        updateimage: updateimage,
+        getVersion: getVersion
+    };
+
+}(JSTACK));/*
+The MIT License
+
+Copyright (c) 2013 Universidad Politecnica de Madrid
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+
+/// JStack Neutron Module
+// ------------------
+
+JSTACK.Neutron = (function(JS, undefined) {
+    "use strict";
+    var params, check, configure, getnetworkslist, createnetwork, updatenetwork, getnetworkdetail, deletenetwork,
+    getsubnetslist, createsubnet, updatesubnet, getsubnetdetail, deletesubnet,
+    getportslist, createport, updateport, getportdetail, deleteport, getrouterslist, createrouter, updaterouter,
+    getrouterdetail, deleterouter, addinterfacetorouter, removeinterfacefromrouter;
+
+    // This modules stores the `url`to which it will send every
+    // request. 
+    params = {
+        url: undefined,
+        state: undefined,
+        endpointType: "publicURL"
+    };
+
+    // Private functions
+    // -----------------
+
+    // Function `check` internally confirms that Keystone module is
+    // authenticated and it has the URL of the Glance service.
+    check = function(region) {
+        if (JS.Keystone !== undefined && JS.Keystone.params.currentstate === JS.Keystone.STATES.AUTHENTICATED) {
+            var service = JS.Keystone.getservice("network");
+            if (service) {
+                params.url = JSTACK.Comm.getEndpoint(service, region, params.endpointType);
+                return true;
+            }
+            return false;
+        }
+        return false;
+    };
+    // Public functions
+    // ----------------
+    //
+
+    // This function sets the endpoint type for making requests to Glance.
+    // It could take one of the following values:
+    // * "adminURL"
+    // * "internalURL"
+    // * "publicURL"
+    // You can use this function to change the default endpointURL, which is publicURL.
+    configure = function(endpointType) {
+        if (endpointType === "adminURL" || endpointType === "internalURL" || endpointType === "publicURL") {
+            params.endpointType = endpointType;
+        }
+    };
+
+    getnetworkslist = function(callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+
+        url = params.url + 'v2.0/networks';
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result.networks);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.get(url, JS.Keystone.params.token, onOK, onError);
+    };
+
+    createnetwork = function(name, admin_state_up, shared, tenant_id, callback, error, region) {
+        var url, onOK, onError, data;
+        if (!check(region)) {
+            return;
+        }
+        url = params.url + 'v2.0/networks';
+
+        data = {
+            "network" : {
+            }
+        };
+
+        if (name !== undefined) {
+            data.network.name = name;
+        }
+
+        if (admin_state_up !== undefined) {
+            data.network.admin_state_up = admin_state_up;
+        }
+
+        if (shared !== undefined) {
+            data.network.shared = shared;
+        }
+
+        if (tenant_id !== undefined) {
+            data.network.tenant_id = tenant_id;
         }
 
         onOK = function(result) {
@@ -2618,25 +3185,721 @@ JSTACK.Glance = (function(JS, undefined) {
                 error(message);
             }
         };
-        JS.Comm.put(url, JS.Keystone.params.token, data, onOK, onError, headers);
+
+        JS.Comm.post(url, data, JS.Keystone.params.token, onOK, onError);
     };
+
+    getnetworkdetail = function(network_id, callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+        url = params.url + 'v2.0/networks/' + network_id;
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result.network);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.get(url, JS.Keystone.params.token, onOK, onError);
+    };
+
+    updatenetwork = function(network_id, name, admin_state_up, callback, error, region) {
+        var url, onOK, onError, data;
+        if (!check(region)) {
+            return;
+        }
+        
+        url = params.url + 'v2.0/networks/' + network_id;
+
+        data = {
+            "network" : {
+            }
+        };
+
+        if (name !== undefined) {
+            data.network.name = name;
+        }
+
+        if (admin_state_up !== undefined) {
+            data.network.admin_state_up = admin_state_up;
+        }
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.put(url, data, JS.Keystone.params.token, onOK, onError);
+    };
+
+    deletenetwork = function(network_id, callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+        url = params.url + 'v2.0/networks/' + network_id;
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.del(url, JS.Keystone.params.token, onOK, onError);
+    };
+
+    getsubnetslist = function(callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+        
+        url = params.url + 'v2.0/subnets';
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.get(url, JS.Keystone.params.token, onOK, onError);
+    };
+
+    createsubnet = function(network_id, cidr, name, allocation_pools, tenant_id, gateway_ip, ip_version, enable_dhcp, dns_nameservers, host_routes, callback, error, region) {
+        var url, onOK, onError, data;
+        if (!check(region)) {
+            return;
+        }        
+        url = params.url + 'v2.0/subnets';
+
+        data = {
+            "subnet" : {
+                "network_id" : network_id,
+                "cidr" : cidr,
+                "ip_version" : ip_version
+            }
+        }
+
+        if (name !== undefined) {
+            data.subnet.name = name;
+        }
+
+        if (tenant_id !== undefined) {
+            data.subnet.tenant_id = tenant_id;
+        }
+
+        if (allocation_pools !== undefined) {
+            data.subnet.allocation_pools = allocation_pools;
+        }
+
+        if (gateway_ip !== undefined) {
+            data.subnet.gateway_ip = gateway_ip;
+        }
+
+        if (enable_dhcp !== undefined) {
+            data.subnet.enable_dhcp = enable_dhcp;
+        }
+
+        if (dns_nameservers !== undefined) {
+            data.subnet.dns_nameservers = dns_nameservers;
+        }
+
+        if (host_routes !== undefined) {
+            data.subnet.host_routes = host_routes;
+        }
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.post(url, data, JS.Keystone.params.token, onOK, onError);
+    };
+
+    getsubnetdetail = function(subnet_id, callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+
+        url = params.url + 'v2.0/subnets/' + subnet_id;
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.get(url, JS.Keystone.params.token, onOK, onError);
+    };
+
+    updatesubnet = function(subnet_id, name, gateway_ip, enable_dhcp, dns_nameservers, host_routes, callback, error, region) {
+        var url, onOK, onError, data, i, start, end, dns_nameserver, dns_nservers = [], host_route, h_routes = [];
+        if (!check(region)) {
+            return;
+        }
+        
+        url = params.url + 'v2.0/subnets/' + subnet_id;
+
+        data = {
+            "subnet" : {
+            }
+        }
+
+        if (name !== undefined) {
+            data.subnet.name = name;
+        }
+
+        if (gateway_ip !== undefined) {
+            data.subnet.gateway_ip = gateway_ip;
+        }
+
+        if (enable_dhcp !== undefined) {
+            data.subnet.enable_dhcp = enable_dhcp;
+        }
+
+        if (dns_nameservers !== undefined) {
+            for (i in dns_nameservers) {
+                if (dns_nameservers[i] !== undefined) {
+                    dns_nameserver = dns_nameservers[i];
+                    dns_nservers.push(dns_nameserver);
+                }
+            }
+            data.subnet.dns_nameservers = dns_nservers;
+        }
+
+        if (host_routes !== undefined) {
+            for (i in host_routes) {
+                if (host_routes[i] !== undefined) {
+                    host_route = host_routes[i];
+                    h_routes.push(host_route);
+                }
+            }
+            data.subnet.host_routes = h_routes;
+        }
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.put(url, data, JS.Keystone.params.token, onOK, onError);
+    };
+
+    deletesubnet = function(subnet_id, callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+        
+        url = params.url + 'v2.0/subnets/' + subnet_id;
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.del(url, JS.Keystone.params.token, onOK, onError);
+    };
+
+    getportslist = function(callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+        
+        url = params.url + 'v2.0/ports';
+
+        onOK = function(result) {   
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.get(url, JS.Keystone.params.token, onOK, onError);
+    };
+
+    createport = function(network_id, name, fixed_ips, security_groups, admin_state_up, status, tenant_id, mac_address, callback, error, region) {
+        var url, onOK, onError, data, groups = [], i, group, fixed_ip, fix_ips = [];
+        if (!check(region)) {
+            return;
+        }
+
+        url = params.url + 'v2.0/ports';
+
+        data = {
+            "port" : {
+                "network_id" : network_id
+            }
+        };
+
+        if (status !== undefined) {
+            data.port.status = status;
+        }
+
+        if (name !== undefined) {
+            data.port.name = name;
+        }
+
+        if (admin_state_up !== undefined) {
+            data.port.admin_state_up = admin_state_up;
+        }
+
+        if (tenant_id !== undefined) {
+            data.port.tenant_id = tenant_id;
+        }
+
+        if (mac_address !== undefined) {
+            data.port.mac_address = mac_address;
+        }
+
+        if (fixed_ips !== undefined) {
+            for (i in fixed_ips) {
+                if (fixed_ips[i] !== undefined) {
+                    fixed_ip = fixed_ips[i];
+                    fix_ips.push(fixed_ip);
+                }
+            }
+
+            data.port.fixed_ips = fix_ips;
+        }
+
+        if (security_groups !== undefined) {
+            for (i in security_groups) {
+                if (security_groups[i] !== undefined) {
+                    group = security_groups[i];
+                    groups.push(group);
+                }
+            }
+
+            data.port.security_groups = groups;
+        }
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.post(url, data, JS.Keystone.params.token, onOK, onError);
+    };
+
+    getportdetail = function(port_id, callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+
+        url = params.url + 'v2.0/ports/' + port_id;
+
+        onOK = function(result) {   
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.get(url, JS.Keystone.params.token, onOK, onError);
+    };
+
+    updateport = function(port_id, name, fixed_ips, security_groups, admin_state_up, status, tenant_id, mac_address, callback, error, region) {
+        var url, onOK, onError, data, groups = [], i, group, fixed_ip, fix_ips = [];
+        if (!check(region)) {
+            return;
+        }
+        
+        url = params.url + 'v2.0/ports/' + port_id;
+
+        data = {
+            "port" : {
+            }
+        };
+
+        if (status !== undefined) {
+            data.port.status = status;
+        }   
+
+        if (name !== undefined) {
+            data.port.name = name;
+        }
+
+        if (admin_state_up !== undefined) {
+            data.port.admin_state_up = admin_state_up;
+        }
+
+        if (tenant_id !== undefined) {
+            data.port.tenant_id = tenant_id;
+        }
+
+        if (mac_address !== undefined) {
+            data.port.mac_address = mac_address;
+        }
+
+        if (fixed_ips !== undefined) {
+            for (i in fixed_ips) {
+                if (fixed_ips[i] !== undefined) {
+                    fixed_ip = fixed_ips[i];
+                    fix_ips.push(fixed_ip);
+                }
+            }
+
+            data.port.fixed_ips = fix_ips;
+        }
+
+        if (security_groups !== undefined) {
+            for (i in security_groups) {
+                if (security_groups[i] !== undefined) {
+                    group = security_groups[i];
+                    groups.push(group);
+                }
+            }
+
+            data.port.security_groups = groups;
+        }
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.put(url, data, JS.Keystone.params.token, onOK, onError);
+    };
+
+    deleteport = function(port_id, callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+
+        url = params.url + 'v2.0/ports/' + port_id;
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.del(url, JS.Keystone.params.token, onOK, onError);
+    };
+
+    getrouterslist = function(callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+
+        url = params.url + 'v2.0/routers';
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.get(url, JS.Keystone.params.token, onOK, onError);
+    };
+
+    createrouter = function(name, admin_state_up, network_id, tenant_id, callback, error, region) {
+        var url, onOK, onError, data;
+        if (!check(region)) {
+            return;
+        }
+        url = params.url + 'v2.0/routers';
+
+        data = {
+            "router" : {
+                "external_gateway_info" : {
+                }
+            }
+        };
+
+        if (network_id !== undefined) {
+            data.router.external_gateway_info.network_id = network_id;
+        }
+
+        if (name !== undefined) {
+            data.router.name = name;
+        }
+
+        if (admin_state_up !== undefined) {
+            data.router.admin_state_up = admin_state_up;
+        }
+
+        if (tenant_id !== undefined) {
+            data.router.tenant_id = tenant_id;
+        }
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.post(url, data, JS.Keystone.params.token, onOK, onError);
+    };
+
+    getrouterdetail = function(router_id, callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+        url = params.url + 'v2.0/routers/' + router_id;
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.get(url, JS.Keystone.params.token, onOK, onError);
+    };
+
+    updaterouter = function(router_id, network_id, name, admin_state_up, callback, error, region) {
+        var url, onOK, onError, data;
+        if (!check(region)) {
+            return;
+        }
+        
+        url = params.url + 'v2.0/routers/' + router_id;
+
+        data = {
+            "router" : {
+                "external_gateway_info" : {
+                }
+            }
+        };
+
+        if (network_id !== undefined) {
+            data.router.external_gateway_info.network_id = network_id;
+        }
+
+        if (name !== undefined) {
+            data.router.name = name;
+        }
+
+        if (admin_state_up !== undefined) {
+            data.router.admin_state_up = admin_state_up;
+        }
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.put(url, data, JS.Keystone.params.token, onOK, onError);
+    };
+
+    deleterouter = function(router_id, callback, error, region) {
+        var url, onOK, onError;
+        if (!check(region)) {
+            return;
+        }
+        url = params.url + 'v2.0/routers/' + router_id;
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.del(url, JS.Keystone.params.token, onOK, onError);
+    };
+
+    addinterfacetorouter = function(router_id, subnet_id, port_id, callback, error, region) {
+        var url, onOK, onError, data;
+        if (!check(region)) {
+            return;
+        }
+        url = params.url + 'v2.0/routers/' + router_id + '/add_router_interface';
+
+        data = {
+         
+        };
+
+        if (subnet_id !== undefined) {
+            data.subnet_id = subnet_id;
+        }
+
+        if (port_id !== undefined) {
+            data.port_id = port_id;
+        }
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.put(url, data, JS.Keystone.params.token, onOK, onError);
+    };
+
+    removeinterfacefromrouter = function(router_id, port_id, subnet_id, callback, error, region) {
+        var url, onOK, onError, data;
+        if (!check(region)) {
+            return;
+        }
+
+        data = {  
+             
+        };
+
+        url = params.url + 'v2.0/routers/' + router_id + '/remove_router_interface';
+
+        if (subnet_id !== undefined) {
+            data.subnet_id = subnet_id;
+        }
+
+        if (port_id !== undefined) {
+            data.port_id = port_id;
+        }
+
+        onOK = function(result) {
+            if (callback !== undefined) {
+                callback(result);
+            }
+        };
+        onError = function(message) {
+            if (error !== undefined) {
+                error(message);
+            }
+        };
+
+        JS.Comm.put(url, data, JS.Keystone.params.token, onOK, onError);
+    };
+
     // Public Functions and Variables
     // ------------------------------
     // This is the list of available public functions and variables
     return {
-
+        params : params,
         // Functions:
         configure: configure,
-        getimagelist: getimagelist,
-        getimagedetail: getimagedetail,
-        updateimage: updateimage
+        getnetworkslist : getnetworkslist,
+        getnetworkdetail : getnetworkdetail,
+        createnetwork : createnetwork,
+        updatenetwork : updatenetwork,
+        deletenetwork : deletenetwork,
+        getsubnetslist : getsubnetslist,
+        getsubnetdetail : getsubnetdetail,
+        createsubnet : createsubnet,
+        updatesubnet : updatesubnet,
+        deletesubnet : deletesubnet,
+        getportslist : getportslist,
+        getportdetail : getportdetail,
+        createport : createport,
+        updateport : updateport,
+        deleteport : deleteport,
+        getrouterslist : getrouterslist,
+        createrouter : createrouter,
+        updaterouter : updaterouter,
+        getrouterdetail :getrouterdetail,
+        deleterouter : deleterouter,
+        addinterfacetorouter : addinterfacetorouter,
+        removeinterfacefromrouter : removeinterfacefromrouter
     };
 
 }(JSTACK));
 
-/*****************************************************************************/
-// UPM ETSI-INF patch to be browser compatible
-if (typeof (module) !== "undefined") {
-    module.exports = JSTACK;
-}
-/*****************************************************************************/
+//module.exports = JSTACK;

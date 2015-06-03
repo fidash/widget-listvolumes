@@ -3,7 +3,7 @@
 describe('Test Volume Table', function () {
 	"use strict";
 
-	var openStack = null;
+	var listVolumes = null;
 	var respAuthenticate = null;
 	var respVolumeList = null;
 	var prefsValues;
@@ -39,7 +39,8 @@ describe('Test Volume Table', function () {
 		respVolumeList = getJSONFixture('respVolumeList.json');
 
 		// Create new volume
-		openStack = new OpenStackListVolume();
+		listVolumes = new OpenStackListVolume();
+		listVolumes.init();
 	});
 
 	afterEach(function () {
@@ -55,7 +56,7 @@ describe('Test Volume Table', function () {
 	function callListVolume() {
 
 		var createWidgetUI;
-		openStack.init();
+		listVolumes.authenticate();
 
 		createWidgetUI = MashupPlatform.http.makeRequest.calls.mostRecent().args[1].onSuccess;
 		respAuthenticate = {

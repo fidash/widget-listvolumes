@@ -9,6 +9,9 @@
       browsers: ['Firefox', 'Chrome'],
 
       files: [
+        // PhantomJS polyfill
+        'node_modules/phantomjs-polyfill/bind-polyfill.js',
+
         // Vendor files
         'src/test/vendor/*.js',
         'node_modules/jquery/dist/jquery.js',
@@ -21,7 +24,7 @@
         'src/test/helpers/*.js',
 
         // Fixtures
-        { pattern: 'src/test/fixtures/html/defaultTemplate.html',
+        { pattern: 'src/test/fixtures/html/*.html',
           watched: true,
           served:  true,
           included: false },
@@ -32,7 +35,10 @@
           included: false },
 
         // Source code
-        'src/js/*.js',
+        'src/js/Utils.js',
+        'src/js/Region.js',
+        'src/js/UI.js',
+        'src/js/ListVolume.js',
 
         // Spec files
         'src/test/js/*Spec.js'
