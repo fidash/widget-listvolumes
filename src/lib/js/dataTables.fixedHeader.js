@@ -669,16 +669,20 @@ FixedHeader.prototype = {
 	_fnClassUpdate: function ( source, dest )
 	{
 		var that = this;
+		try {
+			if ( source.nodeName.toUpperCase() === "TR" || source.nodeName.toUpperCase() === "TH" ||
+				 source.nodeName.toUpperCase() === "TD" || source.nodeName.toUpperCase() === "SPAN" )
+			{
+				dest.className = source.className;
+			}
 
-		if ( source.nodeName.toUpperCase() === "TR" || source.nodeName.toUpperCase() === "TH" ||
-			 source.nodeName.toUpperCase() === "TD" || source.nodeName.toUpperCase() === "SPAN" )
-		{
-			dest.className = source.className;
+			$(source).children().each( function (i) {
+				that._fnClassUpdate( $(source).children()[i], $(dest).children()[i] );
+			} );
 		}
-
-		$(source).children().each( function (i) {
-			that._fnClassUpdate( $(source).children()[i], $(dest).children()[i] );
-		} );
+		catch (e) {
+			
+		}
 	},
 
 
@@ -717,7 +721,12 @@ FixedHeader.prototype = {
 
 		/* Clone the DataTables header */
 		var nThead = $('thead', s.nTable).clone(true)[0];
-		nTable.appendChild( nThead );
+		try {
+			nTable.appendChild( nThead );
+		}
+		catch (e) {
+			
+		}
 
 		/* Copy the widths across - apparently a clone isn't good enough for this */
 		var a = [];
