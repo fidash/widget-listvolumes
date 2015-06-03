@@ -1,0 +1,38 @@
+[  
+  {  
+    "endpoints": [  
+      {  
+        "region_id":"Crete",
+        "url":"http://puppet-master.lab.fi-ware.org",
+        "region":"Crete",
+        "interface":"admin",
+        "id":"07265e96fc56405b9869bd3a4ec88085"
+      },
+      {  
+        "region_id":"Volos",
+        "url":"http://puppet-master.lab.fi-ware.org",
+        "region":"Volos",
+        "interface":"internal",
+        "id":"08c45c0309e54116837a2528ad576244"
+      }
+    ]
+  },
+  {
+    "endpoints": [
+      {  
+        "region_id":"Gent",
+        "url":"http://puppet-master.lab.fi-ware.org",
+        "region":"Gent",
+        "interface":"admin",
+        "id":"07265e96fc56405b9869bd3a4ec88085"
+      },
+      {  
+        "region_id":"Prague",
+        "url":"http://puppet-master.lab.fi-ware.org",
+        "region":"Prague",
+        "interface":"internal",
+        "id":"08c45c0309e54116837a2528ad576244"
+      }
+    ]
+  }
+]

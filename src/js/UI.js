@@ -10,11 +10,12 @@ var UI = (function () {
     /*                P R I V A T E   F U N C T I O N S               */
     /******************************************************************/
 
-    function selectVolume (id) {
+    function selectVolume (id, region) {
         var data = {
             'id': id,
             'access': JSTACK.Keystone.params.access,
-            'token': JSTACK.Keystone.params.token
+            'token': JSTACK.Keystone.params.token,
+            'region': region
         };
         MashupPlatform.wiring.pushEvent('volume_id', JSON.stringify(data));
     }
@@ -92,8 +93,53 @@ var UI = (function () {
         $('<button>')
             .html('<i class="fa fa-refresh"></i>')
             .addClass('btn btn-default action-button pull-left')
-            .click(refreshCallback)
+            .click(refreshCallback.bind(null, false))
             .insertBefore(nextElement);
+    }
+
+    function createRegionsButton (nextElement) {
+        $('<button>')
+            .html('<i class="fa fa-globe"></i>')
+            .addClass('btn btn-default action-button pull-left')
+            .click(toggleRegionSelector)
+            .insertBefore(nextElement);
+    }
+
+    function createRegionSelector () {
+        var regions = Region.getAvailableRegions();
+        var regionSelector = $('<div>')
+                .attr('id', 'region-selector')
+                .addClass('region-selector')
+                .css('max-height', window.innerHeight - 50)
+                .appendTo($('body'));
+
+
+        $(window).resize(function () {
+            regionSelector.css('max-height', window.innerHeight - 50);
+        });
+
+        regions.forEach(function(region) {
+            $('<div>')
+                .html('<input type="checkbox" name="region" value="' + region + '" /> ' + region)
+                .addClass('region-container')
+                .click(function (e) {
+                    var input = $('input', this);
+                    input.toggleClass('selected');
+                    if (input.prop('checked')) {
+                        input.prop('checked', false);
+                        Region.setCurrentRegions(regionSelector);
+                    }
+                    else {
+                        input.prop('checked', true);
+                        Region.setCurrentRegions(regionSelector);
+                    }
+                })
+                .appendTo(regionSelector);
+        });
+    }
+
+    function toggleRegionSelector () {
+        $('#region-selector').toggleClass('slideRight');
     }
 
     function initFixedHeader () {
@@ -113,7 +159,7 @@ var UI = (function () {
         // Clear previous elements
         dataTable.api().clear();
 
-        volumeList.volumes.forEach(function (volume) {
+        volumeList.forEach(function (volume) {
 
             displayableSize = volume.size + ' GB';
 
@@ -126,7 +172,7 @@ var UI = (function () {
                 volume.volume_type,
                 displayableSize,
                 volume.snapshot_id,
-                //volume.region
+                volume.region
             ])
             .draw()
             .nodes()
@@ -146,6 +192,8 @@ var UI = (function () {
         $('#volumes_table tbody').on('click', 'tr', function () {
             var data = dataTable.api().row(this).data();
             var id = data[0];
+            var region = data[data.length - 1];
+
             UI.selectedRowId = id;
             
             dataTable.api().row('.selected')
@@ -153,7 +201,7 @@ var UI = (function () {
                 .to$()
                 .removeClass('selected');
             $(this).addClass('selected');
-            selectVolume(id);
+            selectVolume(id, region);
         });
     }
 
@@ -171,6 +219,8 @@ var UI = (function () {
         // Pagination style
         $('#volumes_table_paginate').addClass('pagination pull-right');
 
+        createRegionSelector();
+        createRegionsButton($('#volumes_table_paginate'));
         createSearchField($('#volumes_table_paginate'));
         createModalButton($('#volumes_table_paginate'));
         createRefreshButton($('#volumes_table_paginate'), refreshCallback);
@@ -217,7 +267,7 @@ var UI = (function () {
 
     }
 
-    function drawVolumes (refreshCallback, volumeList) {
+    function drawVolumes (refreshCallback, autoRefresh, volumeList) {
         
         // Save previous scroll and page
         var scroll = $(window).scrollTop();
@@ -232,9 +282,11 @@ var UI = (function () {
         $(window).scrollTop(scroll);
         dataTable.api().page(page).draw(false);
 
-        setTimeout(function () {
-            refreshCallback();
-        }, 4000);
+        if (autoRefresh) {
+            setTimeout(function () {
+                refreshCallback(true);
+            }, 4000);
+        }
 
         initFixedHeader();
 

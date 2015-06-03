@@ -297,7 +297,7 @@ describe('Test Volume Table', function () {
 		
 		expect($('.alert > strong').last().text()).toBe('Error ');
 		expect($('.alert > span').last().text()).toBe('An error has occurred on the server side. ');
-		expect($('.alert > div').last().text()).toBe(error.message + ' ' + error.body + ' ');
+		expect($('.alert > div').last().text()).toBe(error.message + ' ' + error.body + ' ' + error.region + ' ');
 
 	});
 

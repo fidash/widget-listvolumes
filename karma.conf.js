@@ -41,7 +41,8 @@
         'src/js/ListVolume.js',
 
         // Spec files
-        'src/test/js/*Spec.js'
+        'src/test/js/openstack-protoSpec.js',
+        'src/test/js/regionSpec.js'
       ],
 
       preprocessors: {

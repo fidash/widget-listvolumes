@@ -20,7 +20,7 @@ var OpenStackListVolume = (function (JSTACK) {
 
         UI.stopLoadingAnimation($('.loading'));
         UI.createTable(getVolumeList, createVolume);
-        getVolumeList();
+        getVolumeList(true);
 
     }
 
@@ -64,6 +64,54 @@ var OpenStackListVolume = (function (JSTACK) {
         
     }
 
+    function createJoinRegions (regionsLimit, autoRefresh) {
+
+        var currentVolumeList = [];
+        var errorList = [];
+
+        function deductRegionLimit () {
+
+            regionsLimit -= 1;
+
+            if (regionsLimit === 0) {
+
+                UI.drawVolumes(getVolumeList, autoRefresh, currentVolumeList);
+                drawErrors();
+            }
+        }
+
+        function drawErrors () {
+            if (errorList.length === 0) return;
+
+            errorList.forEach(function (error) {
+                onError(error);
+            });
+        }
+
+        function joinRegionsSuccess (region, volumeList) {
+
+            volumeList.volumes.forEach(function (volume) {
+                volume.region = region;
+                currentVolumeList.push(volume);
+            });
+
+            deductRegionLimit();
+        }
+
+        function joinRegionsErrors (region, error) {
+
+            error.region = region;
+            errorList.push(error);
+
+            deductRegionLimit();
+        }
+
+        return {
+            success: joinRegionsSuccess,
+            error: joinRegionsErrors
+        };
+    }
+
     function createVolume () {
 
         var size = $('#id_size').val();
@@ -87,9 +135,14 @@ var OpenStackListVolume = (function (JSTACK) {
         console.log("Volume successfully created");
     }
 
-    function getVolumeList () {
+    function getVolumeList (autoRefresh) {
 
-        JSTACK.Nova.Volume.getvolumelist(true, UI.drawVolumes.bind(null, getVolumeList), onError);
+        var regions = Region.getCurrentRegions();
+        var joinRegions = createJoinRegions(regions.length, autoRefresh);
+
+        regions.forEach(function (region) {
+            JSTACK.Nova.Volume.getvolumelist(true, joinRegions.success.bind(null, region), joinRegions.error.bind(null, region), onError, region);
+        });
 
     }
 

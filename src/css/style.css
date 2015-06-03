@@ -52,7 +52,7 @@ tr button.btn.btn-primary {
     top: 0;
     left: 0;
     position: absolute;
-    margin-left: 75px;
+    margin-left: 112px;
     margin-top: 7px;
 }
 
@@ -66,6 +66,41 @@ tr button.btn.btn-primary {
     padding: 6px 12px;
     width: 150px
  }
+
+ .region-selector {
+    position: fixed;
+    background-color: white;
+    margin: 3px;
+    border-radius: 10px 0px 0px 10px;
+    overflow-y: scroll;
+    border: solid 1px;
+    z-index: 10000;
+    margin-bottom: 40px;
+    width: 40%;
+    min-width: 200px;
+    max-width: 250px;
+    top: 0;
+    left: -255px;
+    transition: left ease-in 250ms
+}
+
+.region-selector.slideRight {
+    left: 0;
+}
+
+.region-container {
+    cursor: pointer;
+    padding: 0px 31px;
+    margin: 0;
+}
+
+.region-container:hover {
+    background-color: #F5F5F5;
+}
+
+.region-container:focus {
+    background-color: #a9b7d1;
+}
 
  .pagination {
     float: right !important;
