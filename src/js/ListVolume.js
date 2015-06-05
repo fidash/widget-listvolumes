@@ -117,8 +117,9 @@ var OpenStackListVolume = (function (JSTACK) {
         var size = $('#id_size').val();
         var description = $('#id_description').val();
         var name = $('#id_name').val();
+        var region = $('#id_region').find(":selected").val();
 
-        JSTACK.Cinder.createvolume(size, name, description, createVolumeCallback, onError);
+        JSTACK.Cinder.createvolume(size, name, description, createVolumeCallback, onError, region);
 
         // Clear form inputs
         $('#id_size').val('1');
@@ -141,7 +142,7 @@ var OpenStackListVolume = (function (JSTACK) {
         var joinRegions = createJoinRegions(regions.length, autoRefresh);
 
         regions.forEach(function (region) {
-            JSTACK.Cinder.getvolumelist(true, joinRegions.success.bind(null, region), joinRegions.error.bind(null, region), onError, region);
+            JSTACK.Cinder.getvolumelist(true, joinRegions.success.bind(null, region), joinRegions.error.bind(null, region), region);
         });
 
     }

@@ -151,7 +151,13 @@ describe('Test Volume Table', function () {
 		createButton.trigger('click');
 
 		expect('click').toHaveBeenTriggeredOn('#create-volume');
-		expect(JSTACK.Cinder.createvolume).toHaveBeenCalledWith(jasmine.any(String), "VolumeName", jasmine.any(String), jasmine.any(Function), jasmine.any(Function));
+		expect(JSTACK.Cinder.createvolume).toHaveBeenCalledWith(
+			jasmine.any(String),
+			"VolumeName",
+			jasmine.any(String),
+			jasmine.any(Function),
+			jasmine.any(Function),
+			jasmine.any(String));
 
 	});
 

@@ -30,7 +30,7 @@ var UI = (function () {
             {'title': 'Volume Type'},
             {'title': 'Size'},
             {'title': 'Snapshot'},
-            //{'title': 'Region'}
+            {'title': 'Region'}
         ];
 
         dataTable = $('#volumes_table').dataTable({
@@ -142,6 +142,25 @@ var UI = (function () {
         $('#region-selector').toggleClass('slideRight');
     }
 
+    function createFormRegionSelector () {
+        
+        var availableRegions = Region.getAvailableRegions();
+        var currentRegions = Region.getCurrentRegions();
+        var regionFormSelector = $('#id_region');
+
+        availableRegions.forEach(function (region) {
+            $('<option>')
+                .val(region)
+                .text(region)
+                .appendTo(regionFormSelector);
+        });
+
+        if (currentRegions.length === 1) {
+            $('option[value=' + currentRegions[0] + ']').attr('default', true);
+        }
+
+    }
+
     function initFixedHeader () {
         // Fixed header
         UI.fixedHeader = new $.fn.dataTable.FixedHeader(dataTable);
@@ -219,6 +238,7 @@ var UI = (function () {
         // Pagination style
         $('#volumes_table_paginate').addClass('pagination pull-right');
 
+        createFormRegionSelector();
         createRegionSelector();
         createRegionsButton($('#volumes_table_paginate'));
         createSearchField($('#volumes_table_paginate'));
