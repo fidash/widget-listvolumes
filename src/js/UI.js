@@ -72,6 +72,9 @@ var UI = (function () {
             if (focusState) {
                 searchInput.focus();
             }
+            else {
+                searchInput.blur();
+            }
 
         });
 
