@@ -251,6 +251,7 @@ var UI = (function () {
         // Set create volume button event
         $('#create-volume').on('click', createCallback);
 
+        initFixedHeader();
     }
 
     function updateHiddenColumns () {
@@ -299,8 +300,6 @@ var UI = (function () {
         buildTableBody(volumeList);
         setSelectVolumeEvents();
 
-        dataTable.api().columns.adjust().draw();
-
         // Restore previous scroll and page
         $(window).scrollTop(scroll);
         dataTable.api().page(page).draw(false);
@@ -310,8 +309,6 @@ var UI = (function () {
                 refreshCallback(true);
             }, 4000);
         }
-
-        initFixedHeader();
 
     }
 
