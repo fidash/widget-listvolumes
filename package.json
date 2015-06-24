@@ -44,6 +44,7 @@
     "grunt-karma": "^0.10.1",
     "grunt-template-jasmine-istanbul": "^0.3.0",
     "grunt-text-replace": "^0.3.12",
+    "grunt-wirecloud": "^0.7.1",
     "jasmine-core": "^2.3.2",
     "jasmine-jquery": "^2.0.5",
     "karma": "^0.12.31",
