@@ -25,5 +25,5 @@
     <outputendpoint name="volume_id" type="text" label="Volume ID" description="Sends volume ID and OpenStack access." friendcode="volume_id"/>
   </wiring>
   <contents src="index.html" useplatformstyle="true"/>
-  <rendering height="27" width="11"/>
+  <rendering height="25" width="9"/>
 </widget>
