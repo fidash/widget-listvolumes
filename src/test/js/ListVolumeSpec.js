@@ -95,13 +95,13 @@ describe('List Volume', function () {
         expect(rows.length).toBeGreaterThan(0);
     });
 
-    it('should call error callback for authenticate correctly', function () {
+    it('should call error callback when authentication fails', function () {
         
         var consoleSpy = spyOn(console, "log");
 
         callListVolume();
-        callAuthenticateWithError('Test successful');
-        expect(consoleSpy.calls.mostRecent().args[0]).toBe('Error: "Test successful"');
+        callAuthenticateWithError({"error": {"message": "An unexpected error prevented the server from fulfilling your request.", "code": 500, "title": "Internal Server Error"}});
+        expect(consoleSpy.calls.mostRecent().args[0]).toBe("Error: " + JSON.stringify({message: "500 Internal Server Error", body: "An unexpected error prevented the server from fulfilling your request.", region: "IDM"}));
     });
 
     it('should call getserverlist 2 seconds after receiving the last update', function () {
