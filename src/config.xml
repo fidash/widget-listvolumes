@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<widget xmlns="http://wirecloud.conwet.fi.upm.es/ns/macdescription/1" vendor="CoNWeT" name="openstack-listvolume-widget" version="0.5.0">
+<widget xmlns="http://wirecloud.conwet.fi.upm.es/ns/macdescription/1" vendor="CoNWeT" name="listvolume-widget" version="0.5.0">
   <details>
-    <title>OpenStack List Volume Widget</title>
+    <title>List Volume</title>
     <email>bgrana@conwet.com</email>
     <image>images/catalogue.png</image>
     <smartphoneimage>images/catalogueSmartphone.png</smartphoneimage>
