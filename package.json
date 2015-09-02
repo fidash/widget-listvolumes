@@ -1,16 +1,16 @@
 {
   "name": "ListVolumes",
-  "homepage": "https://repo.conwet.fi.upm.es/wirecloud/openstack-listinstances-widget",
+  "homepage": "https://github.com/fidash/widget-listvolumes",
   "version": "0.5.0",
   "vendor": "CoNWeT",
   "author": "CoNWeT Lab., Universidad Politecnica de Madrid",
   "description": "A widget showing a list of current volumes available for a user of an openstack instance.",
   "repository": {
     "type": "git",
-    "url": "https://repo.conwet.fi.upm.es/wirecloud/openstack-listinstances-widget.git"
+    "url": "https://github.com/fidash/widget-listvolumes"
   },
   "bugs": {
-    "url": "https://repo.conwet.fi.upm.es/wirecloud/openstack-listinstances-widget/issues"
+    "url": "https://github.com/fidash/widget-listvolumes/issues"
   },
   "keywords": [
     "wirecloud",
