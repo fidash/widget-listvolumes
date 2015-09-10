@@ -9,23 +9,22 @@ The widget displays a list of volumes available to the user in FIWARE's Cloud. T
 
 The List Volume widget has the following wiring endpoints:
 
-|Way|Name|Type|Description|Label|Friendcode|
-|:--:|:--:|:--:|:--:|:--:|:--:|
-|output|volume_id|text|Sends volume ID and OpenStack access.|Volume ID|volume_id|
-|output|image_id|text|Sends the image ID and OpenStack access.|Image ID|image_id|
+|Label|Name|Friendcode|Type|Description|
+|:--:|:--:|:--:|:--:|:--:|
+|Volume ID|volume_id|volume_id|text|Sends volume ID and OpenStack access.|
 
 
 ## User preferences
 
 List Volume has the following preferences:
 
-|Name|Type|Description|Label|Default|
+|Label|Name|Type|Default|Description|
 |:--:|:--:|:--:|:--:|:--:|
-|size|boolean|Activate to display the size column|Size|true|
-|snapshot_id|boolean|Activate to display the snapshot column|Snapshot|false|
-|volume_type|boolean|Activate to display the volume type column|Volume Type|false|
-|created_at|boolean|Activate to display the created column|Created|false|
-|availability_zone|boolean|Activate to display the availability zone column|Availability Zone|true|
-|status|boolean|Activate to display the status column|Status|true|
-|name|boolean|Activate to display the name column|Name|true|
-|id|boolean|Activate to display the id column|ID|false|
+|Size|size|boolean|true|Activate to display the size column|
+|Snapshot|snapshot_id|boolean|false|Activate to display the snapshot column|
+|Volume Type|volume_type|boolean|false|Activate to display the volume type column|
+|Created|created_at|boolean|false|Activate to display the created column|
+|Availability Zone|availability_zone|boolean|true|Activate to display the availability zone column|
+|Status|status|boolean|true|Activate to display the status column|
+|Name|name|boolean|true|Activate to display the name column|
+|ID|id|boolean|false|Activate to display the id column|
