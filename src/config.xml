@@ -5,7 +5,7 @@
     <email>bgrana@conwet.com</email>
     <image>images/catalogue.png</image>
     <smartphoneimage>images/catalogueSmartphone.png</smartphoneimage>
-    <description>Widget that shows a table with openStack volumes data</description>
+    <description>FIDASH widget that shows a table with openStack volumes data</description>
     <authors>bgrana</authors>
   </details>
   <requirements>
