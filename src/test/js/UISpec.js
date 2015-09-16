@@ -75,7 +75,7 @@ describe('User Interface', function () {
     it('should add the given row', function() {
 
         var volume = respVolumeList.volumes[0];
-        var expectedTextList = [volume.display_name, volume.status, volume.availability_zone, "15 GB"];
+        var expectedTextList = [volume.display_name, volume.status, volume.availability_zone, "15 GiB"];
         var cell;
 
         UI.drawVolumes(drawCallbacks.refresh, false, respVolumeList.volumes);        

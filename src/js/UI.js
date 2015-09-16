@@ -183,7 +183,7 @@ var UI = (function () {
 
         volumeList.forEach(function (volume) {
 
-            displayableSize = volume.size + ' GB';
+            displayableSize = volume.size + " GiB";
 
             row = dataTable.api().row.add([
                 volume.id,
