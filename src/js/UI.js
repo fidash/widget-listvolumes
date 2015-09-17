@@ -165,13 +165,13 @@ var UI = (function () {
     }
 
     function initFixedHeader () {
-        // Fixed header
         UI.fixedHeader = new $.fn.dataTable.FixedHeader(dataTable);
+        $(window).resize(redrawFixedHeaders);
+    }
 
-        $(window).resize(function () {
-            UI.fixedHeader._fnUpdateClones(true); // force redraw
-            UI.fixedHeader._fnUpdatePositions();
-        });
+    function redrawFixedHeaders () {
+        UI.fixedHeader._fnUpdateClones(true); // force redraw
+        UI.fixedHeader._fnUpdatePositions();
     }
 
     function buildTableBody (volumeList) {
@@ -303,6 +303,10 @@ var UI = (function () {
         // Restore previous scroll and page
         $(window).scrollTop(scroll);
         dataTable.api().page(page).draw(false);
+
+        // Adjust headers and columns
+        dataTable.api().columns.adjust();
+        redrawFixedHeaders();
 
         if (autoRefresh) {
             setTimeout(function () {
