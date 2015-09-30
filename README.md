@@ -21,7 +21,7 @@ The List Volume widget has the following wiring endpoints:
 List Volume has the following preferences:
 
 |Label|Name|Type|Default|Description|
-|:--:|:--:|:--:|:--:|:--:|
+|:--:|:--:|:--:|:--:|:--|
 |Size|size|boolean|true|Activate to display the size column|
 |Snapshot|snapshot_id|boolean|false|Activate to display the snapshot column|
 |Volume Type|volume_type|boolean|false|Activate to display the volume type column|
