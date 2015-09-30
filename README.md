@@ -1,5 +1,7 @@
 #List Volumes Widget
 
+[![Build Status](https://build.conwet.fi.upm.es/jenkins/view/FI-Dash/job/Widget%20ListVolumes/badge/icon)](https://build.conwet.fi.upm.es/jenkins/view/FI-Dash/job/Widget%20ListVolumes/)
+
 This project is part of [FIWARE](https://www.fiware.org/). This widget is part of FI-Dash component included in FIWARE.
 
 The widget displays a list of volumes available to the user in FIWARE's Cloud. The widget also has multi-region support and allows the creation of new volumes.
@@ -10,7 +12,7 @@ The widget displays a list of volumes available to the user in FIWARE's Cloud. T
 The List Volume widget has the following wiring endpoints:
 
 |Label|Name|Friendcode|Type|Description|
-|:--:|:--:|:--:|:--:|:--:|
+|:--:|:--:|:--:|:--:|:--|
 |Volume ID|volume_id|volume_id|text|Sends volume ID and OpenStack access.|
 
 
