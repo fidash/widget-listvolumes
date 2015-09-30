@@ -139,6 +139,10 @@ var UI = (function () {
                 })
                 .appendTo(regionSelector);
         });
+
+        // Select default region
+        $("div>input[type=checkbox][value=Spain2]").prop("checked", true);
+        Region.setCurrentRegions(regionSelector);
     }
 
     function toggleRegionSelector () {
@@ -334,12 +338,16 @@ var UI = (function () {
     }
 
     function stopLoadingAnimation () {
-
-        // Hide
         $('.loading').addClass('hide');
     }
 
+    function clearTable () {
+        dataTable.api().clear();
+        dataTable.api().draw();
+    }
+
     return {
+        clearTable: clearTable,
         createTable: createTable,
         updateHiddenColumns: updateHiddenColumns,
         drawVolumes: drawVolumes,

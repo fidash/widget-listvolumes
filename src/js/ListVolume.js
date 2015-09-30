@@ -139,12 +139,24 @@ var OpenStackListVolume = (function (JSTACK) {
     function getVolumeList (autoRefresh) {
 
         var regions = Region.getCurrentRegions();
-        var joinRegions = createJoinRegions(regions.length, autoRefresh);
 
-        regions.forEach(function (region) {
-            JSTACK.Cinder.getvolumelist(true, joinRegions.success.bind(null, region), joinRegions.error.bind(null, region), region);
-        });
+        if (regions.length === 0) {
+            UI.clearTable();
 
+            // Keep refreshing even if there are no regions selected
+            if (autoRefresh) {
+                setTimeout(function () {
+                    getVolumeList(autoRefresh);
+                }, 4000);
+            }
+        }
+        else {
+            var joinRegions = createJoinRegions(regions.length, autoRefresh);
+
+            regions.forEach(function (region) {
+                JSTACK.Cinder.getvolumelist(true, joinRegions.success.bind(null, region), joinRegions.error.bind(null, region), region);
+            });
+        }
     }
 
     function onError (error) {

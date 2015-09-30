@@ -1,12 +1,9 @@
 var Region = (function (JSTACK) {
     "use strict";
 
-    var selectedRegions;
+    var selectedRegions = [];
 
     function getCurrentRegions () {
-        if (!selectedRegions || selectedRegions.length === 0) {
-            selectedRegions = ["Spain2"];
-        }
         return selectedRegions;
     }
 
