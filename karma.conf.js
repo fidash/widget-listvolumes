@@ -65,7 +65,7 @@
       reporters: ['progress', 'junit', 'coverage'],
 
       junitReporter: {
-        outputFile: 'build/test-reports/junit.xml'
+        outputDir: 'build/test-reports'
       },
 
       coverageReporter: {
