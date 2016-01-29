@@ -181,10 +181,11 @@ var OpenStackListVolume = (function (JSTACK) {
     }
 
     function init () {
-
         handlePreferences();
         MashupPlatform.prefs.registerCallback(handlePreferences);
-
+        MashupPlatform.wiring.registerCallback("regions", function(regionsraw) {
+            UI.toggleManyRegions(JSON.parse(regionsraw));
+        });
     }
 
     function OpenStackListVolume () {

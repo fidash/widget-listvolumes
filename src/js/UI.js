@@ -66,7 +66,7 @@ var UI = (function () {
 
         searchButton.on('click', function (e) {
             focusState = !focusState;
-            
+
             searchInput.toggleClass('slideRight');
 
             if (focusState) {
@@ -150,7 +150,7 @@ var UI = (function () {
     }
 
     function createFormRegionSelector () {
-        
+
         var availableRegions = Region.getAvailableRegions();
         var currentRegions = Region.getCurrentRegions();
         var regionFormSelector = $('#id_region');
@@ -221,13 +221,19 @@ var UI = (function () {
             var region = data[data.length - 1];
 
             UI.selectedRowId = id;
-            
+
             dataTable.api().row('.selected')
                 .nodes()
                 .to$()
                 .removeClass('selected');
             $(this).addClass('selected');
             selectVolume(id, region);
+        });
+    }
+
+    function joinArrays(a, b) {
+        return a.filter(function(i) {
+            return b.indexOf(i) >= 0;
         });
     }
 
@@ -273,7 +279,7 @@ var UI = (function () {
         ];
 
         hiddenColumns = [];
-        
+
         for (var i=0; i<preferenceList.length; i++) {
 
             display = MashupPlatform.prefs.get(preferenceList[i]);
@@ -296,7 +302,7 @@ var UI = (function () {
     }
 
     function drawVolumes (refreshCallback, autoRefresh, volumeList) {
-        
+
         // Save previous scroll and page
         var scroll = $(window).scrollTop();
         var page = dataTable.api().page();
@@ -346,12 +352,36 @@ var UI = (function () {
         dataTable.api().draw();
     }
 
+    function toggleManyRegions (regions) {
+        var otherregions = Region.getAvailableRegions();
+        var joinregions = joinArrays(regions, otherregions);
+        var i, region, input;
+
+        // First set everything to false
+        for(i=0;  i<otherregions.length; i++) {
+            region = otherregions[i];
+            input = $("input[value=" + region + "]");
+            input.removeClass('selected');
+            input.prop("checked", false);
+        }
+
+        // Then check only the received
+        for (i=0; i<joinregions.length; i++) {
+            region = joinregions[i];
+            input = $("input[value=" + region + "]");
+            input.toggleClass('selected');
+            input.prop("checked", !input.prop("checked"));
+        }
+        Region.setCurrentRegions($("#region-selector"));
+    }
+
     return {
         clearTable: clearTable,
         createTable: createTable,
         updateHiddenColumns: updateHiddenColumns,
         drawVolumes: drawVolumes,
         startLoadingAnimation: startLoadingAnimation,
-        stopLoadingAnimation: stopLoadingAnimation
+        stopLoadingAnimation: stopLoadingAnimation,
+        toggleManyRegions: toggleManyRegions
     };
 })();
