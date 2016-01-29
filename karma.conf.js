@@ -11,7 +11,6 @@ module.exports = function(config) {
         files: [
             // PhantomJS polyfill
             'node_modules/phantomjs-polyfill/bind-polyfill.js',
-            'node_modules/babel-polyfill/dist/polyfill.min.js',
 
             // Vendor files
             'src/test/vendor/*.js',
@@ -35,8 +34,6 @@ module.exports = function(config) {
               served:  true,
               included: false },
 
-            'src/lib/js/OStackAuth.js',
-
             // Source code
             'src/js/Utils.js',
             'src/js/Region.js',
@@ -48,21 +45,7 @@ module.exports = function(config) {
         ],
 
         preprocessors: {
-            'src/js/**/*.js': ['coverage'],
-            'src/lib/js/OStackAuth.js': ['babel']
-        },
-
-        babelPreprocessor: {
-            options: {
-                presets: ['es2015'],
-                sourceMap: 'inline'
-            },
-            filename: function (file) {
-                return file.originalPath.replace(/\.js$/, '.es5.js');
-            },
-            sourceFileName: function (file) {
-                return file.originalPath;
-            }
+            'src/js/**/*.js': ['coverage']
         },
 
         exclude: [

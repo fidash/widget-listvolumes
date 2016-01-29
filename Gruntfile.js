@@ -41,8 +41,7 @@ module.exports = function(grunt) {
                     {expand: true, src: ['bootstrap.min.js'], dest: 'build/wgt/lib/js', cwd: 'node_modules/bootstrap/dist/js'},
                     {expand: true, src: ['*'], dest: 'build/wgt/lib/fonts', cwd: 'node_modules/bootstrap/dist/fonts'},
                     {expand: true, src: ['css/jquery.dataTables.min.css', 'js/jquery.dataTables.min.js', 'images/*'], dest: 'build/wgt/lib', cwd: 'node_modules/datatables/media'},
-                    {expand: true, src: ['css/font-awesome.min.css', 'fonts/*'], dest: 'build/wgt/lib', cwd: 'node_modules/font-awesome'},
-                    {expand: true, src: ['polyfill.min.js'], dest: 'build/wgt/lib/js', cwd: 'node_modules/babel-polyfill/dist'}
+                    {expand: true, src: ['css/font-awesome.min.css', 'fonts/*'], dest: 'build/wgt/lib', cwd: 'node_modules/font-awesome'}
                 ]
             }
         },
@@ -162,6 +161,7 @@ module.exports = function(grunt) {
     grunt.registerTask('package', ['gitinfo', 'manifest', 'copy', 'compress:widget']);
     grunt.registerTask('test', ['karma:headless']);
     grunt.registerTask('default', [
+        'clean',
         'jshint',
         'test',
         'replace:version',

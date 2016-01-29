@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<widget xmlns="http://wirecloud.conwet.fi.upm.es/ns/macdescription/1" vendor="UPM-ETSIINF" name="listvolumes-widget" version="0.6.1">
+<widget xmlns="http://wirecloud.conwet.fi.upm.es/ns/macdescription/1" vendor="UPM-ETSIINF" name="listvolumes-widget" version="0.6.7">
   <details>
     <title>List Volumes</title>
     <email>bgrana@conwet.com</email>
@@ -24,6 +24,7 @@
   <wiring>
     <outputendpoint name="volume_id" type="text" label="Volume ID" description="Sends volume ID and OpenStack access." friendcode="volume_id"/>
     <inputendpoint name="regions" type="text" label="Regions" description="Receive regions selected" friendcode="regions"/>
+    <inputendpoint name="authentication" type="text" label="Authentication" description="Receive the authentication data via wiring" friendcode="openstack-auth"/>
   </wiring>
   <contents src="index.html" useplatformstyle="true"/>
   <rendering height="25" width="9"/>
