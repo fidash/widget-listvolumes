@@ -3,14 +3,15 @@
 
     config.set({
       frameworks: ['jasmine', 'fixture'],
-    
+
       singleRun: true,
 
       browsers: ['Firefox', 'Chrome'],
 
       files: [
         // PhantomJS polyfill
-        'node_modules/phantomjs-polyfill/bind-polyfill.js',
+          'node_modules/phantomjs-polyfill/bind-polyfill.js',
+          'node_modules/babel-polyfill/dist/polyfill.min.js',
 
         // Vendor files
         'src/test/vendor/*.js',
@@ -34,6 +35,8 @@
           served:  true,
           included: false },
 
+          'src/lib/js/OStackAuth.js',
+
         // Source code
         'src/js/Utils.js',
         'src/js/Region.js',
@@ -45,22 +48,36 @@
       ],
 
       preprocessors: {
-        'src/js/**/*.js': ['coverage']
+          'src/js/**/*.js': ['coverage'],
+          'src/lib/js/OStackAuth.js': ['babel']
       },
+
+        babelPreprocessor: {
+            options: {
+                presets: ['es2015'],
+                sourceMap: 'inline'
+            },
+            filename: function (file) {
+                return file.originalPath.replace(/\.js$/, '.es5.js');
+            },
+            sourceFileName: function (file) {
+                return file.originalPath;
+            }
+        },
 
       exclude: [
         'src/js/main.js'
       ],
 
-      plugins: [
-        'karma-jasmine',
-        'karma-firefox-launcher',
-        'karma-chrome-launcher',
-        'karma-phantomjs-launcher',
-        'karma-fixture',
-        'karma-junit-reporter',
-        'karma-coverage'
-      ],
+      // plugins: [
+      //   'karma-jasmine',
+      //   'karma-firefox-launcher',
+      //   'karma-chrome-launcher',
+      //   'karma-phantomjs-launcher',
+      //   'karma-fixture',
+      //   'karma-junit-reporter',
+      //   'karma-coverage'
+      // ],
 
       reporters: ['progress', 'junit', 'coverage'],
 
@@ -69,7 +86,7 @@
       },
 
       coverageReporter: {
-        reporters: [ 
+        reporters: [
           {
             type : 'html',
             dir : 'build/coverage/',
