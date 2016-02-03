@@ -2,11 +2,11 @@
 <widget xmlns="http://wirecloud.conwet.fi.upm.es/ns/macdescription/1" vendor="UPM-ETSIINF" name="listvolumes-widget" version="0.7.1">
   <details>
     <title>List Volumes</title>
-    <email>bgrana@conwet.com</email>
+    <email>bgrana@conwet.com; mgarcia@conwet.com</email>
     <image>images/catalogue.png</image>
     <smartphoneimage>images/catalogueSmartphone.png</smartphoneimage>
     <description>FIDASH widget that shows a table with openStack volumes data</description>
-    <authors>bgrana</authors>
+    <authors>bgrana; mgarcia</authors>
   </details>
   <requirements>
     <feature name="StyledElements" />
@@ -20,6 +20,22 @@
     <preference name="volume_type" type="boolean" description="Activate to display the volume type column" label="Volume Type" default="false" />
     <preference name="snapshot_id" type="boolean" description="Activate to display the snapshot column" label="Snapshot" default="false" />
     <preference name="size" type="boolean" description="Activate to display the size column" label="Size" default="true" />
+
+    <preference name="mintime" type="list" description="Minimum time to update the data" label="Minimum Time" default="2" >
+      <option label="1" value="1"/>
+      <option label="2" value="2"/>
+      <option label="3" value="3"/>
+      <option label="5" value="5"/>
+      <option label="7" value="7"/>
+    </preference>
+    <preference name="maxtime" type="list" description="Maximum time to update the data" label="Maximum Time" default="30" >
+      <option label="10" value="10"/>
+      <option label="20" value="20"/>
+      <option label="30" value="30"/>
+      <option label="50" value="50"/>
+      <option label="70" value="70"/>
+    </preference>
+
   </preferences>
   <wiring>
     <outputendpoint name="volume_id" type="text" label="Volume ID" description="Sends volume ID and OpenStack access." friendcode="volume_id"/>

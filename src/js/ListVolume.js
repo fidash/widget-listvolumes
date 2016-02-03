@@ -6,7 +6,7 @@ var OpenStackListVolume = (function (JSTACK) {
     var authURL = 'https://cloud.lab.fiware.org/keystone/v3/auth/';
 
     function createWidgetUI (tokenResponse) {
-
+        /* jshint validthis: true */
         var token = tokenResponse.getHeader('x-subject-token');
         var responseBody = JSON.parse(tokenResponse.responseText);
 
@@ -19,16 +19,22 @@ var OpenStackListVolume = (function (JSTACK) {
         JSTACK.Keystone.params.currentstate = 2;
 
         UI.stopLoadingAnimation($('.loading'));
-        UI.createTable(getVolumeList, createVolume);
-        getVolumeList(true);
+        UI.createTable(getVolumeList.bind(this), createVolume);
+        getVolumeList.call(this, true);
 
     }
 
     function handlePreferences () {
+        /* jshint validthis: true */
+        this.mintime = MashupPlatform.prefs.get("mintime") * 1000;
+        this.maxtime = MashupPlatform.prefs.get("maxtime") * 1000;
+
         UI.updateHiddenColumns();
     }
 
     function authenticate () {
+        /* jshint validthis: true */
+
         JSTACK.Keystone.init(authURL);
         UI.startLoadingAnimation($('.loading'), $('.loading i'));
 
@@ -53,12 +59,13 @@ var OpenStackListVolume = (function (JSTACK) {
 
             // extra
             UI.stopLoadingAnimation($('.loading'));
-            UI.createTable(getVolumeList, createVolume);
-            getVolumeList(true);
+            UI.createTable(getVolumeList.bind(this), createVolume);
+            getVolumeList.call(this, true);
         }.bind(this));
     }
 
     function createJoinRegions (regionsLimit, autoRefresh) {
+        /* jshint validthis: true */
 
         var currentVolumeList = [];
         var errorList = [];
@@ -69,7 +76,7 @@ var OpenStackListVolume = (function (JSTACK) {
 
             if (regionsLimit === 0) {
 
-                UI.drawVolumes(getVolumeList, autoRefresh, currentVolumeList);
+                UI.drawVolumes(getVolumeList.bind(this), autoRefresh, currentVolumeList);
                 drawErrors();
             }
         }
@@ -89,7 +96,7 @@ var OpenStackListVolume = (function (JSTACK) {
                 currentVolumeList.push(volume);
             });
 
-            deductRegionLimit();
+            deductRegionLimit.call(this);
             UI.deactivateProgressBar();
         }
 
@@ -98,13 +105,13 @@ var OpenStackListVolume = (function (JSTACK) {
             error.region = region;
             errorList.push(error);
 
-            deductRegionLimit();
+            deductRegionLimit.call(this);
             UI.deactivateProgressBar();
         }
 
         return {
-            success: joinRegionsSuccess,
-            error: joinRegionsErrors
+            success: joinRegionsSuccess.bind(this),
+            error: joinRegionsErrors.bind(this)
         };
     }
 
@@ -133,25 +140,23 @@ var OpenStackListVolume = (function (JSTACK) {
     }
 
     function getVolumeList (autoRefresh) {
-        var regions = Region.getCurrentRegions();
+        /* jshint validthis: true */
 
+        var regions = Region.getCurrentRegions();
         UI.activateProgressBar();
+
         if (regions.length === 0) {
             UI.clearTable();
-
-            // Keep refreshing even if there are no regions selected
-            if (autoRefresh) {
-                setTimeout(function () {
-                    getVolumeList(autoRefresh);
-                }, 4000);
-            }
         }
         else {
             var joinRegions = createJoinRegions(regions.length, autoRefresh);
 
             regions.forEach(function (region) {
-                JSTACK.Cinder.getvolumelist(true, joinRegions.success.bind(null, region), joinRegions.error.bind(null, region), region);
+                JSTACK.Cinder.getvolumelist(true, joinRegions.success.bind(this, region), joinRegions.error.bind(this, region), region);
             });
+        }
+        if (autoRefresh) {
+            setTimeout(getVolumeList.bind(this, autoRefresh), this.maxtime);
         }
     }
 
@@ -179,10 +184,14 @@ var OpenStackListVolume = (function (JSTACK) {
     // }
 
     function init () {
-        handlePreferences();
-        MashupPlatform.prefs.registerCallback(handlePreferences);
+        /* jshint validthis: true */
+
+        handlePreferences.call(this);
+
+        MashupPlatform.prefs.registerCallback(handlePreferences.bind(this));
         MashupPlatform.wiring.registerCallback("regions", function(regionsraw) {
             UI.toggleManyRegions(JSON.parse(regionsraw));
+            getVolumeList.call(this);
         });
     }
 
@@ -192,6 +201,8 @@ var OpenStackListVolume = (function (JSTACK) {
         this.authenticate = authenticate;
         this.listVolume = getVolumeList;
         this.createVolume = createVolume;
+        this.mintime = 2000;
+        this.maxtime = 30000;
 
     }
 
