@@ -1,7 +1,7 @@
 /* global Region,Utils */
 
 var UI = (function () {
-	"use strict";
+    "use strict";
 
     var hiddenColumns = [];
     var dataTable;
@@ -98,6 +98,26 @@ var UI = (function () {
             .addClass('btn btn-default action-button pull-left')
             .click(refreshCallback.bind(null, false))
             .insertBefore(nextElement);
+    }
+
+    function createProgressBar (nextElement) {
+        var pgb = $('<div class="progress-bar progress-bar-striped active" role="progressbar" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>');
+        $("<div id=\"loadprogressbar\"></div>")
+            .addClass('progress')
+            .addClass('hidden') // Start hidden
+            .append(pgb)
+            .insertBefore(nextElement);
+    }
+
+    function activateProgressBar () {
+        $("#loadprogressbar")
+            .removeClass("hidden");
+    }
+
+    function deactivateProgressBar () {
+        $("#loadprogressbar")
+            .removeClass("hidden") // remove first
+            .addClass("hidden");
     }
 
     function createRegionsButton (nextElement) {
@@ -200,9 +220,9 @@ var UI = (function () {
                 volume.snapshot_id,
                 volume.region
             ])
-            .draw()
-            .nodes()
-            .to$();
+                .draw()
+                .nodes()
+                .to$();
 
             if (UI.selectedRowId && volume.id === UI.selectedRowId) {
                 row.addClass('selected');
@@ -241,7 +261,7 @@ var UI = (function () {
     /*                 P U B L I C   F U N C T I O N S                */
     /******************************************************************/
 
-	function createTable (refreshCallback, createCallback) {
+    function createTable (refreshCallback, createCallback) {
 
         initDataTable();
 
@@ -257,6 +277,7 @@ var UI = (function () {
         createSearchField($('#volumes_table_paginate'));
         createModalButton($('#volumes_table_paginate'));
         createRefreshButton($('#volumes_table_paginate'), refreshCallback);
+        createProgressBar($('#volumes_table_paginate'));
 
         // Set create volume button event
         $('#create-volume').on('click', createCallback);
@@ -382,6 +403,8 @@ var UI = (function () {
         drawVolumes: drawVolumes,
         startLoadingAnimation: startLoadingAnimation,
         stopLoadingAnimation: stopLoadingAnimation,
-        toggleManyRegions: toggleManyRegions
+        toggleManyRegions: toggleManyRegions,
+        activateProgressBar: activateProgressBar,
+        deactivateProgressBar: deactivateProgressBar
     };
 })();

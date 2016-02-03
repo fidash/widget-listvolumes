@@ -131,3 +131,13 @@ tr button.btn.btn-primary {
     left: 50%;
     transform: translate(-50%, -50%);
 }
+#loadprogressbar {
+    position: absolute;
+    max-width: 25%;
+    width: 100%;
+    top: 0px;
+    left: 0px;
+    margin-top: 7px;
+    margin-left: 116px;
+    height: 25px;
+}

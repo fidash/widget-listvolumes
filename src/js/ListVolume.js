@@ -90,6 +90,7 @@ var OpenStackListVolume = (function (JSTACK) {
             });
 
             deductRegionLimit();
+            UI.deactivateProgressBar();
         }
 
         function joinRegionsErrors (region, error) {
@@ -98,6 +99,7 @@ var OpenStackListVolume = (function (JSTACK) {
             errorList.push(error);
 
             deductRegionLimit();
+            UI.deactivateProgressBar();
         }
 
         return {
@@ -131,9 +133,9 @@ var OpenStackListVolume = (function (JSTACK) {
     }
 
     function getVolumeList (autoRefresh) {
-
         var regions = Region.getCurrentRegions();
 
+        UI.activateProgressBar();
         if (regions.length === 0) {
             UI.clearTable();
 
