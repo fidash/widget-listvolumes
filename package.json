@@ -1,7 +1,7 @@
 {
     "name": "ListVolumes",
     "homepage": "https://github.com/fidash/widget-listvolumes",
-    "version": "0.7.1",
+    "version": "0.9.0",
     "vendor": "UPM-ETSIINF",
     "author": "CoNWeT Lab., Universidad Politecnica de Madrid",
     "description": "A widget showing a list of current volumes available for a user of an openstack instance.",
