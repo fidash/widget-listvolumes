@@ -1,57 +1,57 @@
 {
-    "name": "ListVolumes",
-    "homepage": "https://github.com/fidash/widget-listvolumes",
-    "version": "0.9.0",
-    "vendor": "UPM-ETSIINF",
-    "author": "CoNWeT Lab., Universidad Politecnica de Madrid",
-    "description": "A widget showing a list of current volumes available for a user of an openstack instance.",
+    "license": "AGPL-3.0", 
+    "vendor": "UPM-ETSIINF", 
+    "description": "A widget showing a list of current volumes available for a user of an openstack instance.", 
     "repository": {
-        "type": "git",
-        "url": "https://github.com/fidash/widget-listvolumes"
-    },
+        "url": "https://github.com/fidash/widget-listvolumes", 
+        "type": "git"
+    }, 
+    "author": "CoNWeT Lab., Universidad Politecnica de Madrid", 
     "bugs": {
         "url": "https://github.com/fidash/widget-listvolumes/issues"
-    },
-    "keywords": [
-        "wirecloud",
-        "widget",
-        "openstack",
-        "dashboard"
-    ],
+    }, 
+    "version": "0.9.0", 
+    "dependencies": {
+        "jquery": "^2.1.4", 
+        "font-awesome": "^4.3.0", 
+        "bootstrap": "^3.3.2", 
+        "datatables": "^1.10.5"
+    }, 
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "license": "Apache-2.0",
-    "dependencies": {
-        "bootstrap": "^3.3.2",
-        "datatables": "^1.10.5",
-        "font-awesome": "^4.3.0",
-        "jquery": "^2.1.4"
-    },
+    }, 
+    "keywords": [
+        "wirecloud", 
+        "widget", 
+        "openstack", 
+        "dashboard"
+    ], 
     "devDependencies": {
-        "grunt": "^0.4.5",
-        "grunt-contrib-clean": "^0.6.0",
-        "grunt-contrib-compress": "^0.11.0",
-        "grunt-contrib-concat": "^0.5.0",
-        "grunt-contrib-copy": "^0.7.0",
-        "grunt-contrib-jasmine": "^1.0.0",
-        "grunt-contrib-jshint": "^0.10.0",
-        "grunt-contrib-watch": "^0.6.1",
-        "grunt-gitinfo": "^0.1.7",
-        "grunt-karma": "^0.12.1",
-        "grunt-template-jasmine-istanbul": "^0.3.0",
-        "grunt-text-replace": "^0.3.12",
-        "grunt-wirecloud": "^0.7.1",
-        "jasmine-core": "^2.3.2",
-        "jasmine-jquery": "^2.0.5",
-        "karma": "^0.13.19",
-        "karma-chrome-launcher": "^0.1.8",
-        "karma-coverage": "^0.3.1",
-        "karma-firefox-launcher": "^0.1.4",
-        "karma-fixture": "^0.2.3",
-        "karma-jasmine": "^0.3.5",
-        "karma-junit-reporter": "^0.3.6",
-        "karma-phantomjs-launcher": "^0.1.4",
-        "phantomjs-polyfill": "0.0.1"
-    }
+        "jasmine-jquery": "^2.0.5", 
+        "grunt-contrib-copy": "^0.7.0", 
+        "grunt-karma": "^0.12.1", 
+        "grunt-contrib-concat": "^0.5.0", 
+        "grunt-contrib-watch": "^0.6.1", 
+        "grunt-contrib-jshint": "^0.10.0", 
+        "grunt-gitinfo": "^0.1.7", 
+        "grunt-contrib-compress": "^0.11.0", 
+        "jasmine-core": "^2.3.2", 
+        "karma-junit-reporter": "^0.3.6", 
+        "karma-coverage": "^0.3.1", 
+        "karma-jasmine": "^0.3.5", 
+        "grunt-text-replace": "^0.3.12", 
+        "grunt-contrib-clean": "^0.6.0", 
+        "grunt": "^0.4.5", 
+        "grunt-wirecloud": "^0.7.1", 
+        "karma-phantomjs-launcher": "^0.1.4", 
+        "grunt-template-jasmine-istanbul": "^0.3.0", 
+        "karma-fixture": "^0.2.3", 
+        "karma-chrome-launcher": "^0.1.8", 
+        "karma": "^0.13.19", 
+        "grunt-contrib-jasmine": "^1.0.0", 
+        "phantomjs-polyfill": "0.0.1", 
+        "karma-firefox-launcher": "^0.1.4"
+    }, 
+    "homepage": "https://github.com/fidash/widget-listvolumes", 
+    "name": "ListVolumes"
 }
